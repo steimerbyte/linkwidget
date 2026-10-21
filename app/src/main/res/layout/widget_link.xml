@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Nothing-OS-inspiriertes Widget:
+    - reines Schwarz, weisse Typografie
+    - dezentes Punktraster als Hintergrundtextur (Nothing-Charakter)
+    - keine Farbakzente, keine Verlauefe, keine Schatten
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <TextView
+        android:id="@+id/widget_dot"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.35"
+        android:text="●"
+        android:textColor="@color/nothing_dim"
+        android:textSize="10sp" />
+
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.02"
+        android:maxLines="2"
+        android:textColor="@color/nothing_white"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/widget_url"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:ellipsize="middle"
+        android:fontFamily="monospace"
+        android:maxLines="1"
+        android:textColor="@color/nothing_grey"
+        android:textSize="10sp" />
+
+    <TextView
+        android:id="@+id/widget_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.12"
+        android:text="@string/widget_hint"
+        android:textColor="@color/nothing_dim"
+        android:textSize="9sp" />
+
+</LinearLayout>

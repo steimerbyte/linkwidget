@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Link Widget</string>
+    <string name="config_title">Link einrichten</string>
+
+    <string name="widget_label">Link</string>
+    <string name="widget_description">Öffnet einen Link im Standardbrowser</string>
+    <string name="widget_hint">Tippen zum Öffnen</string>
+
+    <string name="hint_url">URL</string>
+    <string name="hint_title">Titel (optional)</string>
+    <string name="button_save">Speichern</string>
+    <string name="button_cancel">Abbrechen</string>
+    <string name="button_test">Im Standardbrowser testen</string>
+    <string name="button_add_widget">Widget hinzufügen</string>
+
+    <string name="error_empty_url">Bitte eine URL eingeben</string>
+    <string name="no_widgets">Noch keine Widgets eingerichtet.</string>
+    <string name="list_entry">%1$s\n%2$s</string>
+
+    <string name="howto_title">Widget hinzufügen</string>
+    <string name="howto_message">Lange auf eine freie Stelle des Startbildschirms drücken, dann „Widgets“ öffnen und „Link Widget“ auf den Bildschirm ziehen. Anschließend die URL eingeben.\n\nMehrere Links: das Widget mehrfach platzieren. Jede Instanz speichert ihren eigenen Link.\n\nDer Link öffnet immer in deinem Standardbrowser – genau so, wie Android es für normale Links macht.</string>
+
+    <string name="main_headline">Ein Link. Ein Tap. Dein Standardbrowser.</string>
+    <string name="main_sub">Keine Berechtigungen, kein Internetzugriff. Die App speichert nur, was du eingibst.</string>
+</resources>
