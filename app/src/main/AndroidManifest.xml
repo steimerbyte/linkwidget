@@ -2,9 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-        Keine Berechtigungen. Kein android.permission.INTERNET.
-        Gespeichert wird nur in den privaten SharedPreferences der App.
+        INTERNET wird fuer das Laden des Favicons der vom Benutzer
+        eingegebenen Website benoetigt. Es werden ausschliesslich die
+        Icon-URLs dieser Websites abgerufen - keine Analytics, kein
+        Tracking, keine Weitergabe an Dritte.
+
+        Gespeichert wird nur in den privaten App-Bereichen
+        (SharedPreferences und Cache).
     -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"

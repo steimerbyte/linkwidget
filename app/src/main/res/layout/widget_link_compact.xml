@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Kompakte Variante fuer eine einzelne Zelle (schmales Widget).
+    Zeigt das Favicon und den Titel. URL und Hinweis brauchen Platz,
+    den eine Zelle nicht hergibt.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <ImageView
+        android:id="@+id/widget_icon"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginBottom="5dp"
+        android:contentDescription="@string/widget_icon_desc"
+        android:scaleType="fitCenter" />
+
+    <TextView
+        android:id="@+id/widget_dot"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="3dp"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.35"
+        android:text="●"
+        android:textColor="@color/nothing_dim"
+        android:textSize="8sp" />
+
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:maxLines="2"
+        android:textColor="@color/nothing_white"
+        android:textSize="12sp" />
+
+</LinearLayout>

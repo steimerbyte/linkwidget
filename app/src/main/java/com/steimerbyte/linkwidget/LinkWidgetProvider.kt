@@ -3,6 +3,7 @@ package com.steimerbyte.linkwidget
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.os.Bundle
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -26,7 +27,10 @@ class LinkWidgetProvider : AppWidgetProvider() {
     ) {
         for (widgetId in appWidgetIds) {
             val link = LinkStore.get(context, widgetId)
-            appWidgetManager.updateAppWidget(widgetId, buildViews(context, link))
+            // Die aktuelle Groesse des Widgets wird uebergeben, damit das
+            // Layout passend zur Breite gewaehlt werden kann.
+            val options = appWidgetManager.getAppWidgetOptions(widgetId)
+            appWidgetManager.updateAppWidget(widgetId, buildViews(context, link, options))
         }
     }
 
@@ -64,22 +68,71 @@ class LinkWidgetProvider : AppWidgetProvider() {
             )
             if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
             val manager = AppWidgetManager.getInstance(context)
-            manager.updateAppWidget(widgetId, buildViews(context, LinkStore.get(context, widgetId)))
+            val options = manager.getAppWidgetOptions(widgetId)
+            manager.updateAppWidget(
+                widgetId,
+                buildViews(context, LinkStore.get(context, widgetId), options)
+            )
         }
     }
 
-    private fun buildViews(context: Context, link: LinkData): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.widget_link)
+    /**
+     * Wird aufgerufen, wenn der Nutzer das Widget groesser oder kleiner
+     * zieht. Ohne diesen Callback wuerde das Layout nach dem Resize nicht
+     * neu gezeichnet.
+     */
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: android.os.Bundle
+    ) {
+        val link = LinkStore.get(context, appWidgetId)
+        appWidgetManager.updateAppWidget(
+            appWidgetId,
+            buildViews(context, link, newOptions)
+        )
+    }
+
+    private fun buildViews(
+        context: Context,
+        link: LinkData,
+        options: Bundle? = null
+    ): RemoteViews {
+        // Bei schmalen Widgets (< ~120dp) reicht der Platz nicht fuer URL
+        // und Hinweis. Dann wird die kompakte Variante benutzt, die nur
+        // Punkt und Titel zeigt. Sonst das volle Layout.
+        val minWidth = options?.getInt(
+            AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,
+            Int.MAX_VALUE
+        ) ?: Int.MAX_VALUE
+        val isCompact = minWidth < COMPACT_WIDTH_THRESHOLD_DP
+
+        val layoutId = if (isCompact) R.layout.widget_link_compact else R.layout.widget_link
+        val views = RemoteViews(context.packageName, layoutId)
 
         views.setTextViewText(R.id.widget_title, link.title.ifBlank { link.url })
-        views.setTextViewText(R.id.widget_url, link.url)
-        views.setTextViewText(R.id.widget_hint, context.getString(R.string.widget_hint))
 
-        // Sichtbarkeit des Hinweistexts abhaengig davon, ob ein Label gesetzt ist.
-        views.setViewVisibility(
-            R.id.widget_hint,
-            if (link.title.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
-        )
+        // Favicon anzeigen, falls eines im Cache liegt. Sonst bleibt die
+        // ImageView leer und der Punkt uebernimmt die visuelle Rolle.
+        val favicon = FaviconLoader.loadBitmap(context, link.url)
+        if (favicon != null) {
+            views.setImageViewBitmap(R.id.widget_icon, favicon)
+            views.setViewVisibility(R.id.widget_icon, android.view.View.VISIBLE)
+        } else {
+            views.setViewVisibility(R.id.widget_icon, android.view.View.GONE)
+        }
+
+        if (!isCompact) {
+            views.setTextViewText(R.id.widget_url, link.url)
+            views.setTextViewText(R.id.widget_hint, context.getString(R.string.widget_hint))
+
+            // Sichtbarkeit des Hinweistexts abhaengig davon, ob ein Label gesetzt ist.
+            views.setViewVisibility(
+                R.id.widget_hint,
+                if (link.title.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
+            )
+        }
 
         val pendingIntent = buildTapIntent(context, link.id)
         views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
@@ -107,5 +160,7 @@ class LinkWidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_OPEN_LINK = "com.linkwidget.action.OPEN_LINK"
         const val ACTION_REFRESH = "com.linkwidget.action.REFRESH"
+        // Unterhalb dieser Breite (dp) wird das kompakte Layout benutzt.
+        const val COMPACT_WIDTH_THRESHOLD_DP = 120
     }
 }

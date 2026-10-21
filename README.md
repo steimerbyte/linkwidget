@@ -3,7 +3,8 @@
 Eine Nothing-OS-inspirierte Android-App, die genau einen Use-Case abbildet:
 **ein Home-Screen-Widget, das einen Link im Standardbrowser öffnet.**
 
-Kein Bookmark-Manager. Kein Konto. Keine Cloud. Keine Berechtigungen.
+Kein Bookmark-Manager. Kein Konto. Keine Cloud. Eine Berechtigung: INTERNET
+fuer das Favicon der gespeicherten Website - sonst nichts.
 
 ---
 
@@ -40,19 +41,66 @@ ihren eigenen Link.
 
 ## Berechtigungen
 
-Die App deklariert **keine** Berechtigungen.
-
-`aapt2 dump permissions` auf dem Release-APK liefert genau einen Eintrag:
+`aapt2 dump permissions` auf dem Release-APK liefert:
 
 ```
+uses-permission: name='android.permission.INTERNET'
 uses-permission: name='com.steimerbyte.linkwidget.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
 ```
 
-Das ist eine interne AndroidX-Sperre gegen exportierte Empfänger, kein
-Zugriff auf Daten. Kein `INTERNET`, kein Speicherzugriff, kein Standort.
+**INTERNET** wird ausschliesslich fuer das Laden des Favicons der vom
+Benutzer eingegebenen Website gebraucht. Es wird **nur** die Icon-Adresse
+dieser einen Seite abgerufen - kein Tracking, keine Analytics, keine
+Weitergabe an Dritte. Der Abruf erfolgt direkt von der Website selbst,
+nicht ueber einen Dienst wie Google oder DuckDuckGo.
 
-Der Link wird im `ACTION_VIEW`-Intent direkt übergeben. Es findet **kein**
-Netzwerkzugriff statt — weder beim Speichern noch beim Öffnen.
+Die zweite Berechtigung ist eine interne AndroidX-Sperre gegen exportierte
+Empfaenger, kein Zugriff auf Daten. Kein Speicherzugriff, kein Standort.
+
+**Oeffnen verursacht keinen Netzwerkzugriff.** Der Link wird im
+`ACTION_VIEW`-Intent direkt uebergeben. Netzwerk wird nur beim Speichern
+beruehrt, und nur um das Icon zu holen.
+
+## Favicons
+
+Beim Speichern der URL wird das Icon der Website geladen und auf dem
+Widget angezeigt - so wie ein Browser es tut.
+
+Der Ablauf:
+
+1. Die Seite wird abgerufen
+2. Aus dem `<head>` wird das passende `<link rel="icon">` ausgelesen
+3. Das Icon wird von der dort genannten Adresse geladen
+
+Es wird **kein Drittanbieter-Dienst** eingeschaltet. Die einzige
+aufgerufene Domain ist die, die der Benutzer selbst eingegeben hat.
+
+**Formate:** Android kann kein SVG und kein ICO dekodieren. Beides
+kommt in freier Wildbahn vor (Hacker News liefert `y18.svg`, viele
+Server liefern `favicon.ico`). Der Loader erkennt das Format und
+handelt entsprechend:
+
+| Format | Vorgehen |
+|---|---|
+| PNG, JPEG, GIF, WebP | direkt verwendet |
+| ICO | groesstes enthaltenes Bild wird herausgeloest und in BMP umgewandelt |
+| SVG | nicht dekodierbar - Ausweichen auf `/favicon.ico` der Domain |
+| keines | Ausweichen auf `/favicon.ico`, dann `/favicon.png` |
+
+Bei ICO ist `biHeight` doppelt so gross, weil die AND-Maske mit
+eingerechnet wird. Der Extractor korrigiert das und schneidet die
+Maske ab - ein 48x48-Icon wird ein 48x48-Bild, nicht 48x96.
+
+Das Icon wird lokal im App-Cache gehalten, unter einem Hash-Namen -
+im Dateisystem sind keine Hostnamen sichtbar.
+
+## Groesse und Layout
+
+Das Widget ist auf **eine Zelle**beschraenkt gesetzt (`minWidth`/`minHeight` =
+40dp) und laesst sich frei in beide Richtungen ziehen. Wer es kleiner
+zieht, bekommt automatisch ein kompaktes Layout mit nur Icon und Titel;
+ab etwa 120dp Breite kommen URL und Hinweistext dazu.
+
 
 ## Nothing-OS-Optik
 
@@ -110,11 +158,14 @@ keytool -genkeypair -v -keystore linkwidget.keystore \
 
 ```
 app/src/main/java/com/steimerbyte/linkwidget/
-├── LinkWidgetProvider.kt    # Widget, Intent-Auslösung
+├── LinkWidgetProvider.kt    # Widget, Intent-Auslösung, Layout-Wahl
 ├── WidgetConfigActivity.kt  # Konfigurationsdialog beim Platzieren
 ├── MainActivity.kt          # Optionale Übersicht + Test-Button
 ├── LinkStore.kt             # Persistenz (SharedPreferences)
 ├── UrlNormalizer.kt         # URL-Normalisierung (getestet)
+├── FaviconLoader.kt         # Icon holen, cachen, anzeigen
+├── ImageFormat.kt           # Format-Erkennung (PNG/JPEG/SVG/ICO/...)
+├── IcoExtractor.kt          # Bild aus ICO-Container lösen
 └── LinkData                 # Datenmodell (in LinkStore.kt)
 ```
 
@@ -127,6 +178,13 @@ app/src/main/java/com/steimerbyte/linkwidget/
   Der tatsächliche Tap auf dem Gerät ist damit **nicht** geprüft.
 - Der Link-Titel wird nur angezeigt, nicht als Lesezeichen gespeichert.
 - Keine Mehrfach-Links in *einem* Widget — dafür mehrere Widget-Instanzen.
+- **SVG-Favicons werden nicht angezeigt.** Die Android-Plattform hat keinen
+  SVG-Decoder. In dem Fall weicht die App auf `/favicon.ico` der Domain aus.
+  Wer unbedingt das SVG-Icon will, braucht eine eigene SVG-Rendering-Bibliothek.
+- Die Bitmap-Dekodierung selbst ist **nicht** per Unit-Test geprueft:
+  `android.graphics.BitmapFactory` ist in lokalen Unit-Tests nicht mockbar.
+  Geprueft ist die Struktur der erzeugten Datei (BMP-Header, quadratische
+  Masse, Bit-Tiefe) sowie die Extraktion gegen ein echtes ICO.
 ## Lizenz
 
 Apache License 2.0 — siehe [LICENSE](LICENSE).

@@ -4,6 +4,7 @@
     <string name="config_title">Link einrichten</string>
 
     <string name="widget_label">Link</string>
+    <string name="widget_icon_desc">Favicon der Website</string>
     <string name="widget_description">Öffnet einen Link im Standardbrowser</string>
     <string name="widget_hint">Tippen zum Öffnen</string>
 

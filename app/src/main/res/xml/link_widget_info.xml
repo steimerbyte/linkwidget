@@ -1,13 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    minWidth/minHeight von 40dp erlauben eine Groesse von EINER Zelle.
+    Der Launcher berechnet die Zellenzahl aus minWidth: bei 110dp waren es
+    2 Zellen, deshalb war eine schmalere Platzierung nicht moeglich.
+    40dp ergibt genau eine Zelle.
+
+    targetCellWidth/Height (ab API 31) legt die Standardgroesse in Zellen
+    fest. Ohne sie leitet der Launcher die Groesse aus minWidth ab.
+
+    resizeMode erlaubt das freie Ziehen in beide Richtungen.
+-->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:configure="com.steimerbyte.linkwidget.WidgetConfigActivity"
     android:description="@string/widget_description"
     android:initialLayout="@layout/widget_link"
     android:minHeight="40dp"
-    android:minWidth="110dp"
+    android:minWidth="40dp"
     android:previewImage="@drawable/widget_preview"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen"
     android:widgetFeatures="reconfigurable" />
-

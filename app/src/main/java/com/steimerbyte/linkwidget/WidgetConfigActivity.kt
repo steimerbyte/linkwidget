@@ -53,6 +53,13 @@ class WidgetConfigActivity : Activity() {
             val provider = LinkWidgetProvider()
             provider.onUpdate(this, manager, intArrayOf(widgetId))
 
+            // Favicon im Hintergrund holen. Sobald es da ist, wird das
+            // Widget neu gezeichnet und zeigt das Icon.
+            FaviconLoader.fetchAsync(this, url) {
+                val refreshed = AppWidgetManager.getInstance(this)
+                LinkWidgetProvider().onUpdate(this, refreshed, intArrayOf(widgetId))
+            }
+
             setResult(
                 RESULT_OK,
                 Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
