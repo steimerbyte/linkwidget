@@ -96,10 +96,21 @@ im Dateisystem sind keine Hostnamen sichtbar.
 
 ## Groesse und Layout
 
-Das Widget ist auf **eine Zelle**beschraenkt gesetzt (`minWidth`/`minHeight` =
-40dp) und laesst sich frei in beide Richtungen ziehen. Wer es kleiner
-zieht, bekommt automatisch ein kompaktes Layout mit nur Icon und Titel;
-ab etwa 120dp Breite kommen URL und Hinweistext dazu.
+Das Widget belegt **eine Zelle** (`minWidth`/`minHeight` = 40dp) und
+laesst sich frei in beide Richtungen ziehen. Bei 110dp - dem Wert der
+ersten Version - berechnete der Launcher 2 Zellen, eine schmalere
+Platzierung war deshalb nicht moeglich.
+
+Je nach Breite waehlt die App das Layout selbst:
+
+| Breite | Layout | Inhalt |
+|---|---|---|
+| < 120dp | kompakt | Icon, Titel |
+| ab 120dp | voll | Icon, Titel, URL, Hinweistext |
+
+Der Wechsel passiert automatisch beim Ziehen, weil
+`onAppWidgetOptionsChanged` das Widget bei jeder Groessenaenderung neu
+zeichnet.
 
 
 ## Nothing-OS-Optik
@@ -123,11 +134,20 @@ Ergebnis: `app/build/outputs/apk/release/app-release.apk`
 
 ### Tests
 
-`app/src/test/.../UrlNormalizerTest.kt` deckt die URL-Normalisierung ab —
-12 Fälle, darunter `mailto:`, `tel:`, Custom Schemes und der Fall
-`example.com/a:b`, bei dem ein Doppelpunkt **kein** Schema ist.
+33 Unit-Tests in fünf Dateien:
 
-Der Test prüft die echte Produktionsklasse `UrlNormalizer`, keine Kopie.
+| Datei | Tests | Deckt ab |
+|---|---|---|
+| `UrlNormalizerTest` | 12 | `mailto:`, `tel:`, Custom Schemes, `example.com/a:b` (Doppelpunkt ist **kein** Schema) |
+| `ImageFormatTest` | 12 | PNG/JPEG/GIF/WebP/SVG/ICO-Erkennung, ICO-Extraktion |
+| `FaviconUrlTest` | 7 | Aufloesung relativer und wurzel-relativer Icon-Pfade |
+| `FaviconFetchTest` | 1 | Integration gegen eine echte Website (netzwerkabhaengig) |
+| `RealIcoTest` | 1 | ICO-Extraktion an einem echten ICO aus der Wildbahn (netzwerkabhaengig) |
+
+Die Tests pruefen die echten Produktionsklassen, keine nachgebauten
+Kopien. Die beiden netzwerkabhaengigen Tests laufen gegen
+`https://omp.steimercloud.xyz`, das ein ICO mit drei Bildgroessen
+liefert - ein Fall, den keine Standardseite abdeckt.
 
 ```bash
 gradle testDebugUnitTest
