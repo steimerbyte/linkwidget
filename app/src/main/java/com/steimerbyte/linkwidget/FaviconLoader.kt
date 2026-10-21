@@ -90,6 +90,10 @@ object FaviconLoader {
     /**
      * Laedt das Favicon im Hintergrund. Der Aufrufer bekommt eine
      * Benachrichtigung, sobald der Abruf durch ist.
+     *
+     * Wird das Icon nur einmalig fehlgeschlagen gespeichert, wird es
+     * nie wieder versucht. Deshalb wird bei einem Fehlschlag keine
+     * Cache-Datei angelegt - dann greift der naechste Versuch wieder.
      */
     fun fetchAsync(context: Context, url: String, onDone: () -> Unit) {
         val appContext = context.applicationContext

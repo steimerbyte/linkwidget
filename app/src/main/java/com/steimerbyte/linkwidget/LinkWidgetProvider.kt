@@ -31,6 +31,22 @@ class LinkWidgetProvider : AppWidgetProvider() {
             // Layout passend zur Breite gewaehlt werden kann.
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             appWidgetManager.updateAppWidget(widgetId, buildViews(context, link, options))
+
+            // Das Favicon wird hier geladen, nicht nur beim Speichern der
+            // URL in der Konfiguration. Sonst bekommen Widgets, die
+            // anders entstanden sind (z.B. nach einem App-Update), nie
+            // ihr Icon - und ein fehlgeschlagener Abruf wird nie
+            // wiederholt.
+            if (link.url.isNotBlank()) {
+                FaviconLoader.fetchAsync(context, link.url) {
+                    val refreshed = AppWidgetManager.getInstance(context)
+                    val freshOptions = refreshed.getAppWidgetOptions(widgetId)
+                    refreshed.updateAppWidget(
+                        widgetId,
+                        buildViews(context, LinkStore.get(context, widgetId), freshOptions)
+                    )
+                }
+            }
         }
     }
 
@@ -111,7 +127,10 @@ class LinkWidgetProvider : AppWidgetProvider() {
         val layoutId = if (isCompact) R.layout.widget_link_compact else R.layout.widget_link
         val views = RemoteViews(context.packageName, layoutId)
 
-        views.setTextViewText(R.id.widget_title, link.title.ifBlank { link.url })
+        // Anzeigename: der gesetzte Titel, sonst der Host ohne Schema.
+        // Niemals die volle URL - die steht sonst zusaetzlich in der
+        // unteren Zeile und wird doppelt angezeigt.
+        views.setTextViewText(R.id.widget_title, link.title.ifBlank { displayHost(link.url) })
 
         // Favicon anzeigen, falls eines im Cache liegt. Sonst bleibt die
         // ImageView leer und der Punkt uebernimmt die visuelle Rolle.
@@ -124,13 +143,20 @@ class LinkWidgetProvider : AppWidgetProvider() {
         }
 
         if (!isCompact) {
+            // Die untere URL-Zeile entfaellt, wenn kein eigener Titel
+            // gesetzt ist. In dem Fall zeigt die Titelzeile bereits
+            // den Host, und die vollstaendige Adresse waere eine
+            // doppelte Information.
+            val hasTitle = link.title.isNotBlank()
             views.setTextViewText(R.id.widget_url, link.url)
+            views.setViewVisibility(
+                R.id.widget_url,
+                if (hasTitle) android.view.View.VISIBLE else android.view.View.GONE
+            )
             views.setTextViewText(R.id.widget_hint, context.getString(R.string.widget_hint))
-
-            // Sichtbarkeit des Hinweistexts abhaengig davon, ob ein Label gesetzt ist.
             views.setViewVisibility(
                 R.id.widget_hint,
-                if (link.title.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
+                if (hasTitle) android.view.View.VISIBLE else android.view.View.GONE
             )
         }
 
@@ -138,6 +164,20 @@ class LinkWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
 
         return views
+    }
+
+    /**
+     * Der Host ohne Schema - "omp.steimercloud.xyz" statt
+     * "https://omp.steimercloud.xyz". Als Titel gesetzt, wirkt es
+     * lesbarer als die vollstaendige Adresse.
+     */
+    private fun displayHost(url: String): String {
+        return try {
+            val host = java.net.URL(url).host
+            if (host.isNullOrBlank()) url else host.removePrefix("www.")
+        } catch (e: Exception) {
+            url
+        }
     }
 
     private fun buildTapIntent(context: Context, widgetId: Int): PendingIntent {
