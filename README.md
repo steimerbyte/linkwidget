@@ -75,6 +75,21 @@ Der Ablauf:
 Es wird **kein Drittanbieter-Dienst** eingeschaltet. Die einzige
 aufgerufene Domain ist die, die der Benutzer selbst eingegeben hat.
 
+**Alle Kandidaten werden gesammelt und nach ihrer tatsaechlichen Groesse
+sortiert** - so wie ein Browser es macht. Das ist wichtig, weil viele
+Seiten mehrere Icons anbieten:
+
+```html
+<link rel="icon" href="/favicon.ico" sizes="16x16"/>
+<link rel="icon" href="/icons/icon-192.png" sizes="192x192"/>
+```
+
+Ohne diese Sortierung gewinnt das erste Icon im Dokument, also das
+16x16-Icon - und das Widget zeigt ein pixeliges Miniaturbild statt des
+echten Logos. Die Reihenfolge der Auswahl: Groesse, dann rel-Rang
+(`fluid-icon`, `apple-touch-icon`, `shortcut icon`, `icon`,
+`mask-icon`), dann Dokumentreihenfolge.
+
 **Formate:** Android kann kein SVG und kein ICO dekodieren. Beides
 kommt in freier Wildbahn vor (Hacker News liefert `y18.svg`, viele
 Server liefern `favicon.ico`). Der Loader erkennt das Format und
@@ -134,13 +149,14 @@ Ergebnis: `app/build/outputs/apk/release/app-release.apk`
 
 ### Tests
 
-33 Unit-Tests in fünf Dateien:
+41 Unit-Tests in sechs Dateien:
 
 | Datei | Tests | Deckt ab |
 |---|---|---|
 | `UrlNormalizerTest` | 12 | `mailto:`, `tel:`, Custom Schemes, `example.com/a:b` (Doppelpunkt ist **kein** Schema) |
 | `ImageFormatTest` | 12 | PNG/JPEG/GIF/WebP/SVG/ICO-Erkennung, ICO-Extraktion |
 | `FaviconUrlTest` | 7 | Aufloesung relativer und wurzel-relativer Icon-Pfade |
+| `IconSelectionTest` | 8 | Icon-Auswahl: groesstes gewinnt, `sizes`-Auswertung |
 | `FaviconFetchTest` | 1 | Integration gegen eine echte Website (netzwerkabhaengig) |
 | `RealIcoTest` | 1 | ICO-Extraktion an einem echten ICO aus der Wildbahn (netzwerkabhaengig) |
 
