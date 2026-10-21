@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/nothing_black"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.4"
+        android:text="●"
+        android:textColor="@color/nothing_dim"
+        android:textSize="12sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:fontFamily="sans-serif-medium"
+        android:text="@string/config_title"
+        android:textColor="@color/nothing_white"
+        android:textSize="22sp" />
+
+    <EditText
+        android:id="@+id/input_url"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/input_background"
+        android:fontFamily="monospace"
+        android:hint="@string/hint_url"
+        android:importantForAutofill="no"
+        android:inputType="textUri"
+        android:padding="14dp"
+        android:textColor="@color/nothing_white"
+        android:textColorHint="@color/nothing_dim"
+        android:textSize="14sp" />
+
+    <EditText
+        android:id="@+id/input_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/input_background"
+        android:fontFamily="sans-serif"
+        android:hint="@string/hint_title"
+        android:importantForAutofill="no"
+        android:inputType="text"
+        android:padding="14dp"
+        android:textColor="@color/nothing_white"
+        android:textColorHint="@color/nothing_dim"
+        android:textSize="14sp" />
+
+    <Button
+        android:id="@+id/button_save"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/button_background"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.08"
+        android:text="@string/button_save"
+        android:textAllCaps="false"
+        android:textColor="@color/nothing_black"
+        android:textSize="14sp" />
+
+    <Button
+        android:id="@+id/button_cancel"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/button_background_outline"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.08"
+        android:text="@string/button_cancel"
+        android:textAllCaps="false"
+        android:textColor="@color/nothing_white"
+        android:textSize="14sp" />
+
+</LinearLayout>
