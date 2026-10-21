@@ -147,5 +147,28 @@ nutzen darf, wie er will.
 
 Copyright 2026 steimerbyte.
 
-Mitwirkende: Minimax (Co-Author im Commit-Verlauf) — die KI hat den
-Code erzeugt; Urheberrecht und Verantwortung liegen beim Auftraggeber.
+Mitwirkende: Minimax (Co-Author im Commit-Verlauf).
+
+### KI-Beitrag
+
+Der Code dieses Projekts wurde mit KI-Systemen erstellt. Konkret: die
+KI-Systeme der Serie **Minimax** haben den Quellcode geschrieben, gebaut
+und getestet — unter Anleitung und Entscheidung des Auftraggebers.
+
+- **Urheberrecht:** liegt beim Auftraggeber (`steimerbyte`), nicht beim
+  KI-Modell. Das Modell ist kein Rechtssubjekt.
+- **Verantwortung:** liegt beim Auftraggeber. Fehler im Code sind zu
+  verantworten — die KI hat sie weder zu verbergen noch zu
+  beschönigen, aber sie kann sie auch nicht verantworten.
+- **Nachprüfbarkeit:** Die Entstehungshistorie ist im Commit-Verlauf
+  dokumentiert, einschließlich der `Co-Authored-By`-Trailer. Der Build
+  ist reproduzierbar: `gradle clean assembleRelease` erzeugt aus dem
+  Quellcode ein signiertes APK.
+
+Der Beitrag, den ein KI-Baustein im Code leistet, unterscheidet sich
+nicht vom Beitrag jedes anderen Menschen: Er steht unter derselben
+Lizenz (Apache 2.0) und unter denselben Regeln.
+
+Wenn du dieses Projekt forkerst und Änderungen per KI erzeugst, gilt
+dasselbe: Beitragende sind für ihre Beiträge verantwortlich, nicht das
+Modell. Bitte dokumentiere KI-Beteiligung im Commit-Verlauf.
