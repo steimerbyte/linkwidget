@@ -1,4 +1,4 @@
-package com.steviroberts.linkwidget
+package com.steimerbyte.linkwidget
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

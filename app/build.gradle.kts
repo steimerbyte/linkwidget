@@ -15,11 +15,11 @@ if (keystorePropsFile.exists()) {
 }
 
 android {
-    namespace = "com.steviroberts.linkwidget"
+    namespace = "com.steimerbyte.linkwidget"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.steviroberts.linkwidget"
+        applicationId = "com.steimerbyte.linkwidget"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

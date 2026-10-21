@@ -1,4 +1,4 @@
-package com.steviroberts.linkwidget
+package com.steimerbyte.linkwidget
 
 /**
  * Normalisiert eine vom Benutzer eingegebene URL.

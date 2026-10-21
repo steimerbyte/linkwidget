@@ -45,7 +45,7 @@ Die App deklariert **keine** Berechtigungen.
 `aapt2 dump permissions` auf dem Release-APK liefert genau einen Eintrag:
 
 ```
-uses-permission: name='com.steviroberts.linkwidget.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
+uses-permission: name='com.steimerbyte.linkwidget.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
 ```
 
 Das ist eine interne AndroidX-Sperre gegen exportierte Empfänger, kein
@@ -109,7 +109,7 @@ keytool -genkeypair -v -keystore linkwidget.keystore \
 ## Projektstruktur
 
 ```
-app/src/main/java/com/steviroberts/linkwidget/
+app/src/main/java/com/steimerbyte/linkwidget/
 ├── LinkWidgetProvider.kt    # Widget, Intent-Auslösung
 ├── WidgetConfigActivity.kt  # Konfigurationsdialog beim Platzieren
 ├── MainActivity.kt          # Optionale Übersicht + Test-Button

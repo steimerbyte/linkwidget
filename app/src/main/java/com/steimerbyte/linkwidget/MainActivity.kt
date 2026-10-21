@@ -1,4 +1,4 @@
-package com.steviroberts.linkwidget
+package com.steimerbyte.linkwidget
 
 import android.content.Intent
 import android.net.Uri
