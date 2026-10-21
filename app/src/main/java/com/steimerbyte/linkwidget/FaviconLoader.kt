@@ -54,16 +54,21 @@ object FaviconLoader {
     )
 
     /**
-     * Reihenfolge, in der die rel-Werte bevorzugt werden.
-     * "fluid-icon" zuerst (modernes, gut designtes Icon), dann das
-     * klassische "icon", dann "apple-touch-icon" als robustester Fallback.
+     * Reihenfolge, in der die rel-Werte bevorzugt werden, wenn die
+     * Groesse gleich ist. "fluid-icon" ist modern und gut designt,
+     * "apple-touch-icon" ist meist ein grosses quadratisches PNG.
      */
     private val REL_PREFERENCE = listOf(
         "fluid-icon",
+        "apple-touch-icon",
         "shortcut icon",
         "icon",
-        "apple-touch-icon",
         "mask-icon"
+    )
+
+    private val SIZES_PATTERN: Pattern = Pattern.compile(
+        """sizes\s*=\s*["']([^"']+)["']""",
+        Pattern.CASE_INSENSITIVE
     )
 
     /**
@@ -193,10 +198,26 @@ object FaviconLoader {
     }
 
     /**
-     * Sucht im HTML die Icon-Adresse und loest relative Pfade auf.
+     * Sucht im HTML die Icon-Adresse.
+     *
+     * Es werden ALLE Icon-Kandidaten gesammelt, nicht nur der erste
+     * passende. Das ist wichtig, weil viele Seiten mehrere Icons
+     * unterschiedlicher Groesse anbieten:
+     *
+     *   <link rel="icon" href="/favicon.ico" sizes="16x16"/>
+     *   <link rel="icon" href="/icons/icon-192.png" sizes="192x192"/>
+     *
+     * Der Browser nimmt das groesste passende. Genau das wird hier
+     * nachgebildet - sonst gewinnt das 16x16-Icon und das Widget zeigt
+     * ein pixeliges Miniaturbild statt des echten Logos.
+     *
+     * Die Reihenfolge der Prioritaet:
+     *  1. Groesse des Icons, wenn per "sizes" angegeben
+     *  2. rel-Praeferenz (apple-touch-icon ist meist ein grosses PNG)
+     *  3. Dokumentreihenfolge
      */
     private fun findIconUrl(html: String, pageUrl: String): String? {
-        val candidates = mutableMapOf<String, String>() // rel -> href
+        val candidates = mutableListOf<IconCandidate>()
 
         val matcher = ICON_LINK_PATTERN.matcher(html)
         while (matcher.find()) {
@@ -208,26 +229,74 @@ object FaviconLoader {
             val href = hrefMatcher.group(1)?.trim() ?: continue
             if (href.isEmpty() || href.startsWith("data:")) continue
 
-            // Mehrere rel-Werte in einem Tag, z.B. rel="shortcut icon".
-            // Der beste Einzelwert gewaehlt, aber der ganze Tag wird
-            // gespeichert, damit "shortcut icon" nicht verloren geht.
-            val bestRel = rel.split(" ")
-                .filter { it.isNotBlank() }
-                .firstOrNull { candidate -> REL_PREFERENCE.contains(candidate) }
-                ?: rel
+            // Der Rang ist die Position in REL_PREFERENCE - nicht die
+            // Position im rel-Attribut des Tags. "indexOfFirst" auf
+            // "rels" liefert die Stelle im Tag (immer 0 oder 1) und
+            // nicht die Rangfolge.
+            val rels = rel.split(" ").filter { it.isNotBlank() }
+            val relRank = rels
+                .mapNotNull { candidate -> REL_PREFERENCE.indexOf(candidate).takeIf { it >= 0 } }
+                .minOrNull() ?: REL_PREFERENCE.size
 
-            if (!candidates.containsKey(bestRel)) {
-                candidates[bestRel] = href
-            }
+            // Aus der sizes-Angabe die Kantenlaenge in Pixeln ableiten.
+            val size = parseSizes(tag)
+
+            candidates.add(
+                IconCandidate(
+                    href = href,
+                    resolved = resolveUrl(href, pageUrl),
+                    declaredSize = size,
+                    relRank = relRank,
+                    order = candidates.size
+                )
+            )
         }
 
-        // Nach Praeferenz auswaehlen.
-        for (preferred in REL_PREFERENCE) {
-            val href = candidates[preferred] ?: continue
-            return resolveUrl(href, pageUrl)
-        }
-        return null
+        if (candidates.isEmpty()) return null
+
+        // Bester Kandidat: groesste angegebene Groesse, dann rel-Rang,
+        // dann Dokumentreihenfolge.
+        val best = candidates
+            .filter { it.resolved != null }
+            .sortedWith(
+                compareByDescending<IconCandidate> { it.declaredSize }
+                    .thenBy { it.relRank }
+                    .thenBy { it.order }
+            )
+            .firstOrNull()
+            ?: return null
+
+        return best.resolved
     }
+
+    /**
+     * Liest die Pixelgroesse aus einem sizes-Attribut.
+     * "16x16" -> 16, "192x192" -> 192, "any" -> 0 (unbekannt).
+     */
+    private fun parseSizes(tag: String): Int {
+        val matcher = SIZES_PATTERN.matcher(tag)
+        if (!matcher.find()) return 0
+        val value = matcher.group(1)?.trim()?.lowercase() ?: return 0
+        if (value == "any") return 0
+        // Nur den groessten Wert einer Liste nehmen, z.B. "16x16 32x32".
+        val dims = Regex("""(\d+)\s*[xX]\s*(\d+)""")
+            .findAll(value)
+            .map { match -> match.groupValues[1].toIntOrNull() ?: 0 }
+            .filter { dimension -> dimension > 0 }
+            .toList()
+        return dims.maxOrNull() ?: 0
+    }
+
+    /**
+     * Ein moeglicher Icon-Kandidat aus dem HTML.
+     */
+    private data class IconCandidate(
+        val href: String,
+        val resolved: String?,
+        val declaredSize: Int,
+        val relRank: Int,
+        val order: Int
+    )
 
     /**
      * Laedt eine URL als String (fuer das HTML-Dokument).
@@ -305,6 +374,17 @@ object FaviconLoader {
             null
         }
     }
+
+    /**
+     * Testbarer Zugang zur Icon-Auswahl.
+     */
+    fun findIconUrlForTest(html: String, pageUrl: String): String? =
+        findIconUrl(html, pageUrl)
+
+    /**
+     * Testbarer Zugang zur sizes-Auswertung.
+     */
+    fun parseSizesForTest(tag: String): Int = parseSizes(tag)
     /**
      * Dateiname aus dem Host. Nicht der Host selbst, sondern ein Hash -
      * so sind keine Hostnamen im Dateisystem sichtbar.
