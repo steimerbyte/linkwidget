@@ -42,5 +42,5 @@
     <string name="howto_message">Lange auf eine freie Stelle des Startbildschirms drücken, dann „Widgets“ öffnen und „Link Widget“ auf den Bildschirm ziehen. Anschließend die URL eingeben.\n\nMehrere Links: das Widget mehrfach platzieren. Jede Instanz speichert ihren eigenen Link.\n\nDer Link öffnet immer in deinem Standardbrowser – genau so, wie Android es für normale Links macht.</string>
 
     <string name="main_headline">Ein Link. Ein Tap. Dein Standardbrowser.</string>
-    <string name="main_sub">Keine Berechtigungen, kein Internetzugriff. Die App speichert nur, was du eingibst.</string>
+    <string name="main_sub">Eine Berechtigung: INTERNET — nur für das Icon der gespeicherten Website. Kein Konto, kein Tracking, keine Weitergabe an Dritte.</string>
 </resources>

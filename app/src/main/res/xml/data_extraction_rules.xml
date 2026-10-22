@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Regeln fuer das Android-Backup (ab API 31).
+
+    Bewusste Entscheidung: Die gespeicherten URLs und Titel werden
+    MIT gesichert. Der Nutzer soll seine Widgets ueber einen
+    Geraetewechsel hinaus behalten - das ist der wichtigste Anwendungsfall
+    fuer eine Widget-App.
+
+    Das include schraenkt das Backup auf die SharedPreferences mit den
+    Widget-Daten ein. Alles andere - insbesondere der Icon-Cache -
+    ist damit automatisch ausgenommen, ohne dass ein exclude noetig
+    waere.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="sharedpref" path="link_widget_store.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="link_widget_store.xml" />
+    </device-transfer>
+</data-extraction-rules>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Backup-Regeln fuer Android 11 und aelter (vor API 31).
+
+    Dieselbe Entscheidung wie in data_extraction_rules.xml: die
+    gespeicherten URLs und Titel werden gesichert, der Icon-Cache
+    nicht. Das include schraenkt das Backup auf die SharedPreferences
+    mit den Widget-Daten ein.
+-->
+<full-backup-content>
+    <include domain="sharedpref" path="link_widget_store.xml" />
+</full-backup-content>

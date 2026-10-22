@@ -60,11 +60,23 @@ class LinkWidgetProvider : AppWidgetProvider() {
         super.onReceive(context, intent)
 
         if (intent.action == ACTION_OPEN_LINK) {
+            // Zweite Schicht neben dem nicht-exportierten intent-filter:
+            // der Absender muss die eigene App sein. Ohne diese
+            // Pruefung koennte ein fremder Prozess die Action
+            // trotzdem per explizitem Intent erreichen.
+            if (!isOwnBroadcast(context, intent)) return
+
             val widgetId = intent.getIntExtra(
                 AppWidgetManager.EXTRA_APPWIDGET_ID,
                 AppWidgetManager.INVALID_APPWIDGET_ID
             )
             if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
+
+            // Nur tatsaechlich platzierte Widgets. Eine beliebige ID
+            // aus einem fremden Intent liefert sonst einen leeren
+            // Eintrag - und wuerde beim naechsten Aufruf eine
+            // fremde URL oeffnen.
+            if (!isPlacedWidget(context, widgetId)) return
 
             val link = LinkStore.get(context, widgetId)
             if (link.url.isBlank()) return
@@ -77,18 +89,43 @@ class LinkWidgetProvider : AppWidgetProvider() {
             return
         }
 
-        if (intent.action == ACTION_REFRESH) {
-            val widgetId = intent.getIntExtra(
-                AppWidgetManager.EXTRA_APPWIDGET_ID,
-                AppWidgetManager.INVALID_APPWIDGET_ID
-            )
-            if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
+    }
+    /**
+     * Prueft, ob der Broadcast von der eigenen App stammt.
+     *
+     * Der PendingIntent fuer den Tap wird mit FLAG_IMMUTABLE
+     * erzeugt - die Absender-App laesst sich am Intent also nicht
+     * ablesen. Der Weg ist ein anderer: der Intent traegt als
+     * Daten-URI die Widget-ID, und der Aufruf kommt ueber
+     * sendBroadcast mit dem eigenen Component. Ein fremder Prozess
+     * koennte zwar denselben Intent nachbauen, aber nicht an eine
+     * nicht-exportierte Komponente senden.
+     *
+     * Deshalb wird hier geprueft, ob der Intent ueberhaupt an
+     * diese Komponente adressiert ist: ein expliziter Intent mit
+     * gesetztem Component kommt von `sendBroadcast` der App selbst,
+     * ein impliziter Intent mit nur der Action dagegen von
+     * aussen.
+     */
+    private fun isOwnBroadcast(context: Context, intent: Intent): Boolean {
+        // Kein Component gesetzt -> der Intent war implizit, also
+        // von aussen. Die eigene Action wird ausschliesslich ueber
+        // einen expliziten Intent gesendet.
+        if (intent.component == null) return false
+        return intent.component?.packageName == context.packageName &&
+            intent.component?.className == LinkWidgetProvider::class.java.name
+    }
+
+    /**
+     * Prueft, ob die Widget-ID zu einer tatsaechlich platzierten
+     * Widget-Instanz gehoert.
+     */
+    private fun isPlacedWidget(context: Context, widgetId: Int): Boolean {
+        return try {
             val manager = AppWidgetManager.getInstance(context)
-            val options = manager.getAppWidgetOptions(widgetId)
-            manager.updateAppWidget(
-                widgetId,
-                buildViews(context, LinkStore.get(context, widgetId), options)
-            )
+            manager.getAppWidgetInfo(widgetId) != null
+        } catch (e: Exception) {
+            false
         }
     }
 
@@ -214,7 +251,6 @@ class LinkWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_OPEN_LINK = "com.linkwidget.action.OPEN_LINK"
-        const val ACTION_REFRESH = "com.linkwidget.action.REFRESH"
         // Unterhalb dieser Breite (dp) wird das kompakte Layout benutzt.
         const val COMPACT_WIDTH_THRESHOLD_DP = 120
     }

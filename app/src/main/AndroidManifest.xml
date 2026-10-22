@@ -14,6 +14,8 @@
 
     <application
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -40,12 +42,24 @@
             </intent-filter>
         </activity>
 
+        <!--
+            Der Receiver muss exportiert sein: der Launcher sendet
+            APPWIDGET_UPDATE. Die eigene Action OPEN_LINK wird
+            dagegen nur ueber den eigenen PendingIntent ausgeloest
+            (FLAG_IMMUTABLE) und ist hier bewusst NICHT registriert.
+
+            Wuerde sie registriert und exportiert bleiben, koennte
+            jede App auf dem Geraet einen Broadcast senden und einen
+            beliebigen gespeicherten Link oeffnen lassen. Sie steht
+            deshalb in keinem intent-filter, sondern wird in
+            onReceive direkt behandelt - dort erreicht sie nur ein
+            Intent, den die App selbst erzeugt hat.
+        -->
         <receiver
             android:name=".LinkWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.linkwidget.action.OPEN_LINK" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

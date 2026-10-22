@@ -3,8 +3,9 @@
 Eine Nothing-OS-inspirierte Android-App, die genau einen Use-Case abbildet:
 **ein Home-Screen-Widget, das einen Link im Standardbrowser öffnet.**
 
-Kein Bookmark-Manager. Kein Konto. Keine Cloud. Eine Berechtigung: INTERNET
-fuer das Favicon der gespeicherten Website - sonst nichts.
+Kein Bookmark-Manager. Kein Konto. Kein Tracking, keine Analytics, keine
+Weitergabe an Dritte. Eine Berechtigung: INTERNET fuer das Favicon der
+gespeicherten Website — sonst nichts.
 
 ---
 
@@ -87,6 +88,35 @@ Empfaenger, kein Zugriff auf Daten. Kein Speicherzugriff, kein Standort.
 `ACTION_VIEW`-Intent direkt uebergeben. Netzwerk wird nur beim Speichern
 beruehrt, und nur um das Icon zu holen.
 
+### Backup
+
+Die gespeicherten URLs und Titel werden **gesichert**, wenn das
+Android-Backup des Geraets aktiv ist. Das ist Absicht: die Widgets sollen
+einen Geraetewechsel ueberleben.
+
+Die Regeln dafuer liegen in `res/xml/data_extraction_rules.xml` (ab
+Android 12) und `res/xml/backup_rules.xml` (aeltere Versionen). Sie
+schraenken das Backup auf die SharedPreferences mit den Widget-Daten ein -
+der Icon-Cache ist ausgenommen.
+
+Wer das nicht moechte, kann das Android-Backup in den Systemeinstellungen
+deaktivieren. Die App selbst hat keinen Einfluss darauf und sendet nichts
+an eigene Server.
+
+## Sicherheit
+
+Ein vollstaendiger Scan liegt in **[SECURITY-AUDIT.md](SECURITY-AUDIT.md)**.
+Zusammenfassung:
+
+| Bereich | Befund |
+|---|---|
+| Secrets im Repo | keine — `keystore.properties` ist ausgeschlossen, die Historie enthaelt nur Platzhalter |
+| Abhaengigkeiten | keine bekannten CVEs (geprueft gegen die OSV-Datenbank) |
+| WebView / HTML-Ausfuehrung | keine — die Zielseite wird gelesen, aber nicht interpretiert |
+| Path Traversal | nicht moeglich — der Cache-Dateiname ist ein Hex-Hash ohne Pfadtrenner |
+| Tracking / Analytics | keine |
+| Externe Receiver | die eigene Action ist nicht im `intent-filter` registriert; `onReceive` prueft Absender und Widget-ID |
+
 ## Favicons
 
 Beim Speichern der URL wird das Icon der Website geladen und auf dem
@@ -134,6 +164,37 @@ DNS  FEHLER: UnknownHostException: gibt-es-nicht.xyz
 
 Die Ausgabe laesst sich ueber **Kopieren** in die Zwischenablage
 uebernehmen und hier einfuegen.
+
+### Eigene Namensaufloesung
+
+Die App loest Hostnamen **nicht** ueber den System-Resolver, sondern
+selbst. Grund ist ein Verhalten, das sich auf dem Zielgeraet gezeigt hat:
+Der System-Resolver loeste dort den Hostnamen nicht auf, obwohl er
+ueberall sonst aufloesbar war — im LTE-Netz antwortete kein
+UDP-Resolver.
+
+Die Reihenfolge:
+
+1. **DNS ueber HTTPS** an `1.1.1.1`, `1.0.0.1`, `1.1.1.2`, `1.0.0.2`
+   (Cloudflare), jeweils **direkt ueber die IP-Adresse** angesprochen.
+   DoH laeuft ueber TCP/443 und wird von Mobilfunkbetreibern nicht
+   blockiert.
+2. **Rohe DNS-Abfrage** per UDP an dieselben und zwei weitere Resolver.
+3. **System-Resolver** als letzte Moeglichkeit.
+
+**Datenschutz:** Die Abfrage geht ausschliesslich an diese vier fest
+eingetragenen IPs und enthaelt nur den zu aufloesenden Hostnamen. Es
+werden keine Daten ueber den Nutzer uebertragen, keine anderen
+Hostnamen mitgegeben und keine anderen Dienste angefragt. Nur diese
+Cloudflare-Adressen sind es, die den Hostnamen der Zielseite zu Gesicht
+bekommen — und das ist genau der, den der Nutzer ohnehin eingegeben hat.
+
+**TLS:** Der Hostname wird **nie** durch die IP ersetzt. Er bleibt in
+der URL, damit SNI und Host-Header ihn tragen. Die aufgeloeste Adresse
+steckt ausschliesslich in der Namensaufloesung. Wuerde stattdessen die
+IP in die URL geschrieben, antwortet Nginx mit
+`TLSV1_ALERT_UNRECOGNIZED_NAME`.
+
 
 ### Automatisches Speichern
 
