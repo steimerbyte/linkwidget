@@ -37,6 +37,20 @@ object FaviconLoader {
     private const val MAX_HTML_BYTES = 512 * 1024
 
 
+    /** Timeout fuer die eigene DNS-Abfrage an einen Resolver. */
+    private const val DNS_TIMEOUT_MS = 4000
+
+    /**
+     * Alternative Resolver, falls der System-Resolver den Hostnamen
+     * nicht aufloesen kann. Die IPs sind fest eingetragen: eine
+     * Aufloesung ueber den Hostnamen waere zirkulaer.
+     */
+    private val FALLBACK_RESOLVERS = listOf(
+        "1.1.1.1",
+        "8.8.8.8",
+        "9.9.9.9"
+    )
+
     private val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     /**
@@ -110,7 +124,8 @@ object FaviconLoader {
                 // Liste statt einer Ausnahme - ohne diese Pruefung
                 // wuerde daraus "Seite liefert kein Icon", und genau
                 // diese falsche Meldung stand bisher auf dem Geraet.
-                if (!reportEnvironment(host, url, onProgress)) {
+                val address = resolveAddress(host, url, onProgress)
+                if (address == null) {
                     onResult(FetchResult.Failed("Host nicht erreichbar"))
                     return@execute
                 }
@@ -120,7 +135,7 @@ object FaviconLoader {
                 // Web-App-Manifest aus und sortiert nach Groesse und
                 // rel-Prioritaet - also mehr, als der eigene Code
                 // konnte (er fand das 512er-Icon im Manifest nicht).
-                val candidates = findIconCandidates(url, onProgress)
+                val candidates = findIconCandidates(url, address, onProgress)
 
                 if (candidates.isEmpty()) {
                     onProgress("keine Icon-Kandidaten - Fallback auf Standardpfade")
@@ -130,6 +145,7 @@ object FaviconLoader {
                     url,
                     candidates,
                     target,
+                    address,
                     onProgress
                 )
                 onResult(outcome)
@@ -142,46 +158,46 @@ object FaviconLoader {
     }
 
     /**
-     * Schreibt die Umgebungsangaben in die Ausgabe.
+     * Ermittelt die Adresse des Hosts und prueft, ob er erreichbar
+     * ist.
      *
-     * Ohne diese Angaben laesst sich ein Fehlschlag nicht
-     * eingrenzen. "Kein verwendbares Icon gefunden" kann bedeuten,
-     * dass das Geraet den Host nicht aufloesen kann, dass die
-     * Verbindung blockiert ist, oder dass die Seite tatsaechlich
-     * kein Icon ausliefert. Die Aufloesung des Hostnamens ist das
-     * entscheidende Unterscheidungsmerkmal und wird deshalb
-     * ausgewertet, bevor ueberhaupt ein HTTP-Request erfolgt.
+     * Zurueckgegeben wird die **aufgeloeste Adresse**, nicht nur der
+     * Name: alle nachfolgenden HTTP-Aufrufe brauchen sie, weil der
+     * System-Resolver auf dem Geraet nicht zuverlaessig arbeitet.
+     *
+     * Gibt null zurueck, wenn der Host nicht erreichbar ist.
      */
-    private fun reportEnvironment(
+    private fun resolveAddress(
         host: String,
         url: String,
         onProgress: (String) -> Unit
-    ): Boolean {
+    ): java.net.InetAddress? {
         onProgress("--- Umgebung ---")
         onProgress("Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
         onProgress("Geraet ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
         onProgress("Ziel $url")
 
-        val addresses = try {
-            java.net.InetAddress.getAllByName(host)
-        } catch (e: Exception) {
-            onProgress("DNS  FEHLER: ${describe(e)}")
+        val addresses = resolve(host, onProgress)
+        if (addresses == null) {
             onProgress("")
-            return false
+            return null
         }
         onProgress("DNS  ${addresses.joinToString(", ") { it.hostAddress ?: "?" }}")
+
+        val address = addresses.first()
 
         // Reicht das Geraet ueberhaupt aus dem Haus heraus? Ohne
         // Antwort auf diese Frage ist jede weitere Angabe irrefuehrend.
         val reachable = try {
-            val probe = URL("https://$host").openConnection() as HttpURLConnection
+            val probe = URL("https://${address.hostAddress}").openConnection() as HttpURLConnection
             probe.connectTimeout = TIMEOUT_MS
             probe.readTimeout = TIMEOUT_MS
             probe.setRequestProperty("User-Agent", USER_AGENT)
+            probe.setRequestProperty("Host", host)
             probe.setInstanceFollowRedirects(true)
             val code = probe.responseCode
             probe.disconnect()
-            onProgress("HTTP $code von $host")
+            onProgress("HTTP $code von $host (${address.hostAddress})")
             code in 200..399
         } catch (e: Exception) {
             onProgress("HTTP FEHLER: ${describe(e)}")
@@ -193,11 +209,211 @@ object FaviconLoader {
             else "Netzwerkzugriff nicht moeglich - Icon kann nicht geladen werden"
         )
         onProgress("")
-        return reachable
+        return if (reachable) address else null
+    }
+
+    /**
+     * Loest den Hostnamen auf und liefert die Adressen.
+     *
+     * Zuerst der System-Resolver. Der kann auf dem Geraet scheitern,
+     * obwohl der Hostname ueberall sonst aufloesbar ist - dann hilft
+     * nur ein anderer Resolver.
+     *
+     * Deshalb wird bei einem Fehlschlag ueber die oeffentlichen
+     * Resolver erneut aufgeloest, jeweils mit ausdruecklicher
+     * Timeout-Uebergabe. Ohne diese Angabe wartet der System-Resolver
+     * unter Umstaenden sehr lange, bevor er aufgibt - und auf einem
+     * LTE-Netz mit captive Portal ist genau das der haeufigste
+     * Zeitverschwender.
+     *
+     * Gibt null zurueck, wenn auch der letzte Versuch scheitert.
+     */
+    private fun resolve(
+        host: String,
+        onProgress: (String) -> Unit
+    ): Array<java.net.InetAddress>? {
+        try {
+            val addresses = java.net.InetAddress.getAllByName(host)
+            onProgress("DNS  System-Resolver: ${addresses.size} Adresse(n)")
+            return addresses
+        } catch (e: Exception) {
+            onProgress("DNS  System-Resolver: ${describe(e)}")
+        }
+
+        // Alternative Resolver. Die IPs sind fest eingetragen, damit
+        // die Aufloesung nicht selbst von DNS abhaengt.
+        for (resolver in FALLBACK_RESOLVERS) {
+            val address = resolveVia(host, resolver)
+            if (address != null) {
+                onProgress("DNS  $resolver: ${address.joinToString(", ") { it.hostAddress ?: "?" }}")
+                return address
+            }
+            onProgress("DNS  $resolver: keine Antwort")
+        }
+
+        onProgress("DNS  alle Versuche gescheitert")
+        return null
+    }
+
+    /**
+     * Loest den Hostnamen ueber einen bestimmten DNS-Server auf.
+     *
+     * Die Abfrage geht als UDP-Paket direkt an den Resolver, nicht
+     * ueber den System-Resolver. Nur so laesst sich ein Resolver
+     * gezielt waehlen, wenn der System-Resolver den Namen nicht
+     * aufloesen kann. Der eigene Timeout ist wichtig: der
+     * System-Resolver kann unter Umstaenden sehr lange warten, bevor
+     * er aufgibt.
+     */
+    private fun resolveVia(
+        host: String,
+        resolver: String
+    ): Array<java.net.InetAddress>? {
+        return try {
+            val socket = java.net.DatagramSocket()
+            try {
+                socket.soTimeout = DNS_TIMEOUT_MS
+                val query = buildDnsQuery(host)
+                socket.send(
+                    java.net.DatagramPacket(
+                        query,
+                        query.size,
+                        java.net.InetAddress.getByName(resolver),
+                        53
+                    )
+                )
+
+                val buffer = ByteArray(512)
+                val response = java.net.DatagramPacket(buffer, buffer.size)
+                socket.receive(response)
+
+                parseDnsAddresses(buffer, response.length)
+            } catch (e: Exception) {
+                Log.d(TAG, "Aufloesung ueber $resolver nicht moeglich: $host", e)
+                null
+            } finally {
+                socket.close()
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "Resolver $resolver nicht erreichbar", e)
+            null
+        }
+    }
+
+    /**
+     * Baut eine DNS-Anfrage fuer einen A-Record.
+     *
+     * Aufbau: 12 Byte Kopf (Transaktions-ID, Flags, Frage), dann der
+     * Name in DNS-Label-Form, danach Typ und Klasse.
+     */
+    private fun buildDnsQuery(host: String): ByteArray {
+        val output = java.io.ByteArrayOutputStream()
+
+        // Transaktions-ID: zufaellig, damit Antworten zugeordnet
+        // werden koennen.
+        val transactionId = (Math.random() * 0xFFFF).toInt()
+        output.write(transactionId shr 8 and 0xFF)
+        output.write(transactionId and 0xFF)
+
+        // Flags: Standardabfrage, Frage gewuenscht.
+        output.write(0x01)
+        output.write(0x00)
+
+        // Fragen: genau eine.
+        output.write(0x00)
+        output.write(0x01)
+
+        // Antworten, Autoritaet, Zusatz: jeweils null.
+        output.write(0x00)
+        output.write(0x00)
+        output.write(0x00)
+        output.write(0x00)
+        output.write(0x00)
+        output.write(0x00)
+
+        // Name in Label-Form: "a.b.c" -> 1a 1b 1c 00
+        for (label in host.split('.')) {
+            if (label.isEmpty()) continue
+            val bytes = label.toByteArray(Charsets.UTF_8)
+            output.write(bytes.size)
+            output.write(bytes)
+        }
+        output.write(0x00)
+
+        // Typ A, Klasse IN
+        output.write(0x00)
+        output.write(0x01)
+        output.write(0x00)
+        output.write(0x01)
+
+        return output.toByteArray()
+    }
+
+    /**
+     * Liest die A-Records aus einer DNS-Antwort.
+     *
+     * Es werden nur A-Records (Typ 1) uebernommen. AAAA-Records
+     * (Typ 28) werden bewusst ignoriert: die App braucht eine
+     * IPv4-Adresse, weil das Zielhost nur IPv4 liefert.
+     */
+    private fun parseDnsAddresses(
+        data: ByteArray,
+        length: Int
+    ): Array<java.net.InetAddress>? {
+        // Der Kopf endet nach 12 Bytes. Danach kommt die Frage:
+        // der Name, dann Typ und Klasse.
+        var offset = 12
+        while (offset < length && data[offset].toInt() != 0) {
+            offset += data[offset].toInt() + 1
+        }
+        offset += 1
+        offset += 4
+
+        val questionCount = ((data[4].toInt() and 0xFF) shl 8) or (data[5].toInt() and 0xFF)
+        val answerCount = ((data[6].toInt() and 0xFF) shl 8) or (data[7].toInt() and 0xFF)
+        if (answerCount <= 0) return null
+
+        val addresses = mutableListOf<java.net.InetAddress>()
+
+        // Die Frage ist bereits uebersprungen. Weitere Fragen gibt
+        // es bei einer A-Abfrage nicht - jede zusaetzliche Frage
+        // waere ein Fehler in der Antwort und wuerde die Auswertung
+        // verschieben.
+
+        // Dann die Antworten auslesen.
+        for (a in 0 until answerCount) {
+            if (offset >= length) break
+
+            if ((data[offset].toInt() and 0xC0) == 0xC0) {
+                offset += 2
+            } else {
+                while (offset < length && data[offset].toInt() != 0) {
+                    offset += data[offset].toInt() + 1
+                }
+                offset += 1
+            }
+
+            if (offset + 10 > length) break
+            val type = ((data[offset].toInt() and 0xFF) shl 8) or (data[offset + 1].toInt() and 0xFF)
+            val dataLength = ((data[offset + 8].toInt() and 0xFF) shl 8) or
+                (data[offset + 9].toInt() and 0xFF)
+            offset += 10
+
+            if (type == 1 && dataLength == 4 && offset + 4 <= length) {
+                val ip = byteArrayOf(
+                    data[offset], data[offset + 1], data[offset + 2], data[offset + 3]
+                )
+                addresses.add(java.net.InetAddress.getByAddress(ip))
+            }
+            offset += dataLength
+        }
+
+        return if (addresses.isEmpty()) null else addresses.toTypedArray()
     }
 
     /**
      * Ergebnis eines Abrufs.
+
      */
     sealed class FetchResult {
         data class Success(val bitmap: Bitmap?, val fileName: String) : FetchResult()
@@ -220,10 +436,11 @@ object FaviconLoader {
      */
     internal fun findIconCandidates(
         url: String,
+        address: java.net.InetAddress?,
         onProgress: (String) -> Unit
     ): List<String> {
         return try {
-            val extractor = TouchIconExtractor()
+            val extractor = TouchIconExtractor(httpClientFor(url, address))
             extractor.userAgent = USER_AGENT
             extractor.downloadLimit = MAX_HTML_BYTES
 
@@ -237,7 +454,7 @@ object FaviconLoader {
                 // die Seite einmal selbst geholt - nur so laesst sich
                 // "nicht erreichbar" von "kein Icon vorhanden"
                 // unterscheiden.
-                val probe = fetchHtml(url, onProgress)
+                val probe = fetchHtml(url, address, onProgress)
                 if (probe == null) {
                     onProgress("Seite nicht lesbar - Kandidaten koennen nicht ermittelt werden")
                     return emptyList()
@@ -276,6 +493,25 @@ object FaviconLoader {
     }
 
     /**
+     * Liefert den HTTP-Client fuer die Bibliothek.
+     *
+     * Ist die Adresse bekannt, wird ein Client verwendet, der genau
+     * diese Adresse benutzt - der System-Resolver wird nicht mehr
+     * gefragt. Ist sie unbekannt, kommt der Standard-Client zum
+     * Einsatz.
+     */
+    private fun httpClientFor(
+        url: String,
+        address: java.net.InetAddress?
+    ): net.mm2d.touchicon.http.HttpClientAdapter {
+        if (address == null) {
+            return net.mm2d.touchicon.http.simple.SimpleHttpClientAdapterFactory.create()
+        }
+        val host = hostOf(url) ?: return net.mm2d.touchicon.http.simple.SimpleHttpClientAdapterFactory.create()
+        return FixedDnsHttpClient(host, address, USER_AGENT)
+    }
+
+    /**
      * Holt das HTML einer Seite und gibt es als Text zurueck, oder
      * null, wenn die Seite nicht erreichbar ist.
      *
@@ -283,18 +519,21 @@ object FaviconLoader {
      * nicht gelesen. Das ist etwas voellig anderes als "die Seite
      * enthaelt kein Icon" und in der Ausgabe getrennt ausgewiesen.
      */
-    private fun fetchHtml(url: String, onProgress: (String) -> Unit): String? {
+    private fun fetchHtml(
+        url: String,
+        address: java.net.InetAddress?,
+        onProgress: (String) -> Unit
+    ): String? {
         return try {
-            val connection = openConnection(url)
+            val connection = openConnection(url, address)
             val code = connection.responseCode
             if (code !in 200..299) {
                 onProgress("      HTTP $code (Seite nicht als HTML erreichbar)")
                 return null
             }
-            val body = connection.inputStream.use { stream ->
+            connection.inputStream.use { stream ->
                 stream.readNBytes(MAX_HTML_BYTES).toString(Charsets.UTF_8)
             }
-            body
         } catch (e: Exception) {
             onProgress("      FEHLER: ${describe(e)}")
             null
@@ -314,11 +553,12 @@ object FaviconLoader {
         pageUrl: String,
         candidates: List<String>,
         target: File,
+        address: java.net.InetAddress?,
         onProgress: (String) -> Unit
     ): FetchResult {
         for ((index, candidate) in candidates.withIndex()) {
             onProgress("[$index] $candidate")
-            val bytes = fetchBytes(candidate, onProgress) ?: continue
+            val bytes = fetchBytes(candidate, address, onProgress) ?: continue
             if (bytes.isEmpty()) {
                 onProgress("      Datei leer - uebersprungen")
                 continue
@@ -375,7 +615,7 @@ object FaviconLoader {
 
         for (fallback in listOf("/favicon.ico", "/favicon.png")) {
             onProgress("fallback  $base$fallback")
-            val bytes = fetchBytes(base + fallback, onProgress) ?: continue
+            val bytes = fetchBytes(base + fallback, address, onProgress) ?: continue
             if (bytes.isEmpty()) {
                 onProgress("      Datei leer - uebersprungen")
                 continue
@@ -424,10 +664,18 @@ object FaviconLoader {
 
     /**
      * Laedt eine URL als Bytes (fuer das Icon).
+     *
+     * Ist eine Adresse uebergeben, wird diese verwendet und der
+     * Hostname nicht erneut aufgeloest. Sonst wuerde genau der
+     * Resolver wieder befragt, der gerade gescheitert ist.
      */
-    private fun fetchBytes(url: String, onProgress: (String) -> Unit): ByteArray? {
+    private fun fetchBytes(
+        url: String,
+        address: java.net.InetAddress?,
+        onProgress: (String) -> Unit
+    ): ByteArray? {
         return try {
-            val connection = openConnection(url)
+            val connection = openConnection(url, address)
             val code = connection.responseCode
             if (code !in 200..299) {
                 onProgress("      HTTP $code")
@@ -461,12 +709,34 @@ object FaviconLoader {
         return "$head <- ${cause.javaClass.simpleName}: ${cause.message ?: "ohne Meldung"}"
     }
 
-    private fun openConnection(url: String): HttpURLConnection {
-        val connection = URL(url).openConnection() as HttpURLConnection
+    /**
+     * Oeffnet eine Verbindung.
+     *
+     * Mit Adresse wird direkt diese IP angesprochen. Der Hostname
+     * bleibt im Host-Header, damit die Zertifikatspruefung und
+     * virtuelle Hosts funktionieren.
+     */
+    private fun openConnection(
+        url: String,
+        address: java.net.InetAddress?
+    ): HttpURLConnection {
+        val target = if (address != null) {
+            val parsed = URL(url)
+            "${parsed.protocol}://${address.hostAddress}${parsed.port.let { if (it == -1) "" else ":$it" }}${parsed.file}"
+        } else {
+            url
+        }
+
+        val connection = URL(target).openConnection() as HttpURLConnection
         connection.connectTimeout = TIMEOUT_MS
         connection.readTimeout = TIMEOUT_MS
         connection.setRequestProperty("User-Agent", USER_AGENT)
         connection.setRequestProperty("Accept", "*/*")
+        if (address != null) {
+            // Ohne Host-Header wuerde der Server die Anfrage unter der
+            // IP-Adresse fuehren und ein anderes Zertifikat liefern.
+            hostOf(url)?.let { connection.setRequestProperty("Host", it) }
+        }
         connection.setInstanceFollowRedirects(true)
         return connection
     }

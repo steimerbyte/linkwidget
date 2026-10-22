@@ -21,7 +21,7 @@ class IconCandidatesTest {
     private val page = "https://omp.steimercloud.xyz"
 
     private fun candidatesFor(url: String): List<String> =
-        FaviconLoader.findIconCandidates(url) { }
+        FaviconLoader.findIconCandidates(url, null) { }
 
     @Test
     fun `kandidaten einer echten seite werden gefunden`() {

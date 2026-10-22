@@ -19,6 +19,7 @@ class FetchDiagnosticsTest {
         val lines = mutableListOf<String>()
         val candidates = FaviconLoader.findIconCandidates(
             "https://gibt-es-diese-domain-nicht-4711.xyz",
+            null,
             { lines.add(it) }
         )
 
@@ -39,7 +40,7 @@ class FetchDiagnosticsTest {
     @Test
     fun `erreichbare domain liefert ausgabe ohne fehler`() {
         val lines = mutableListOf<String>()
-        FaviconLoader.findIconCandidates("https://omp.steimercloud.xyz", { lines.add(it) })
+        FaviconLoader.findIconCandidates("https://omp.steimercloud.xyz", null, { lines.add(it) })
 
         val reported = lines.joinToString("\n")
         println("  Ausgabe:\n$reported")
@@ -56,7 +57,7 @@ class FetchDiagnosticsTest {
     @Test
     fun `kandidatenliste nennt jeden kandidaten einzeln`() {
         val lines = mutableListOf<String>()
-        FaviconLoader.findIconCandidates("https://omp.steimercloud.xyz", { lines.add(it) })
+        FaviconLoader.findIconCandidates("https://omp.steimercloud.xyz", null, { lines.add(it) })
 
         // Jeder Kandidat muss als eigene Zeile erscheinen, damit beim
         // Kopieren der Ausgabe sichtbar ist, welche Adresse probiert

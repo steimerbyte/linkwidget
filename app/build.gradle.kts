@@ -21,8 +21,8 @@ android {
         applicationId = "com.steimerbyte.linkwidget"
         minSdk = 24
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 5
+        versionName = "1.0.4"
     }
 
     signingConfigs {
@@ -61,5 +61,11 @@ dependencies {
 
     // Icon-Extraktion: findet die Icon-Adresse einer Website, inklusive
     // Groessensortierung, Manifest-Support und Redirect-Behandlung.
+
+    // HTTP-Client, der die selbst aufgeloeste IP verwendet. Der
+    // System-Resolver versagt auf manchen Geraeten; mit einem
+    // eigenen Dns-Adapter wird die bereits aufgeloeste Adresse
+    // verwendet, ohne das TLS-Zertifikat zu brechen.
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("net.mm2d.touchicon:touchicon:0.9.9")
 }
