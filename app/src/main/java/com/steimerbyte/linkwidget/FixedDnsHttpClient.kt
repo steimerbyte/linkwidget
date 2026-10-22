@@ -4,45 +4,40 @@ import net.mm2d.touchicon.http.HttpClientAdapter
 import net.mm2d.touchicon.http.HttpResponse
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.io.Closeable
 import java.io.IOException
-import java.net.InetAddress
-import java.util.concurrent.TimeUnit
 
 /**
- * HTTP-Client, der eine bereits aufgeloeste Adresse verwendet.
+ * HTTP-Client fuer die Bibliothek "touch-icon-extractor".
  *
- * Warum das noetig ist: Auf dem Geraet schlug die Aufloesung des
- * Hostnamens ueber den System-Resolver fehl, obwohl der Name ueber
- * oeffentliche Resolver einwandfrei aufloesbar war. Ein Aufruf von
- * `URL.openConnection()` loest den Namen aber erneut auf - und
- * scheitert wieder.
+ * Die Bibliothek bringt einen eigenen HTTP-Client mit, der den
+ * System-Resolver befragt. Auf dem Geraet loest der System-Resolver
+ * Hostnamen nicht zuverlaessig auf - der Abruf wuerde dort wieder
+ * scheitern.
  *
- * Deshalb wird die Adresse vorher selbst ermittelt und hier
- * hinterlegt. OkHttp fragt dann nicht mehr nach.
+ * Deshalb bekommt die Bibliothek den fertigen OkHttp-Client
+ * uebergeben. Dessen Resolver ist in [FaviconLoader] gesetzt und
+ * loest selbst auf.
  *
- * Wichtig: Der Hostname wird **nicht** durch die IP ersetzt. Er
- * bleibt in der URL stehen, damit SNI und Host-Header weiterhin
- * den Hostnamen tragen. Sonst waere die Zertifikatspruefung nicht
- * mehr moeglich, und die Verbindung wuerde an der TLS-Pruefung
- * scheitern statt am DNS.
+ * Der Client bekommt die Bibliothek als [HttpClientAdapter], weil
+ * sie mit einem eigenen Adapter arbeiten kann. Zwei Anmerkungen:
+ *
+ *  - Der Hostname wird **nicht** durch die IP ersetzt. TLS-SNI wird
+ *    daraus gebildet; mit IP als Hostname antwortet Nginx mit
+ *    TLSV1_ALERT_UNRECOGNIZED_NAME. Ein `Host`-Header hilft hier
+ *    nicht, weil er erst nach dem TLS-Handshake ausgewertet wird.
+ *  - Die Bibliothek ruft Manifeste nur vom Origin der Seite ab.
+ *    Deshalb muss der Resolver auch Subdomains abdecken, auf denen
+ *    Icons liegen koennen.
  */
 class FixedDnsHttpClient(
-    private val host: String,
-    private val address: InetAddress,
+    client: OkHttpClient,
     userAgent: String
 ) : HttpClientAdapter {
 
     override var userAgent: String = userAgent
     override var headers: Map<String, String> = emptyMap()
 
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .dns(FixedDns(host, address))
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .followRedirects(true)
-        .followSslRedirects(true)
-        .build()
+    private val client: OkHttpClient = client
 
     @Throws(IOException::class)
     override fun head(url: String): HttpResponse {
@@ -78,24 +73,8 @@ class FixedDnsHttpClient(
     }
 
     /**
-     * Liefert die hinterlegte Adresse fuer den einen Host und
-     * delegiert alle anderen Anfragen an das System.
-     */
-    private class FixedDns(
-        private val host: String,
-        private val address: InetAddress
-    ) : okhttp3.Dns {
-        override fun lookup(hostname: String): List<InetAddress> {
-            if (hostname.equals(host, ignoreCase = true)) {
-                return listOf(address)
-            }
-            return okhttp3.Dns.SYSTEM.lookup(hostname)
-        }
-    }
-
-    /**
-     * Duenne Huelle um die OkHttp-Antwort, passend zum Adapter der
-     * Bibliothek.
+     * Duenne Huelle um die OkHttp-Antwort, passend zur Schnittstelle
+     * der Bibliothek.
      */
     private class OkHttpResponse(
         private val response: okhttp3.Response

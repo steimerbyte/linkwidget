@@ -1,7 +1,9 @@
 package com.steimerbyte.linkwidget
 
+import okhttp3.OkHttpClient
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 /**
  * Prueft die Icon-Kandidaten, die der Produktivpfad fuer eine echte
@@ -19,9 +21,16 @@ import org.junit.Test
 class IconCandidatesTest {
 
     private val page = "https://omp.steimercloud.xyz"
+    private val host = "omp.steimercloud.xyz"
+
+    private fun clientFor(): OkHttpClient =
+        OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .build()
 
     private fun candidatesFor(url: String): List<String> =
-        FaviconLoader.findIconCandidates(url, null) { }
+        FaviconLoader.findIconCandidates(url, host, clientFor()) { }
 
     @Test
     fun `kandidaten einer echten seite werden gefunden`() {
