@@ -11,6 +11,13 @@
     <string name="hint_url">URL</string>
     <string name="hint_title">Titel (optional)</string>
     <string name="button_save">Speichern</string>
+    <string name="button_fetch">Icon laden</string>
+    <string name="preview_label">VORSCHAU</string>
+    <string name="fetch_hint">Icon laden, um zu sehen, was im Widget erscheint.</string>
+    <string name="fetch_starting">Wird abgerufen ...</string>
+    <string name="fetch_success">OK — %1$d×%2$d Pixel</string>
+    <string name="fetch_not_decodable">Datei geladen, aber nicht als Bild lesbar.</string>
+    <string name="fetch_failed">Fehlgeschlagen: %1$s</string>
     <string name="button_cancel">Abbrechen</string>
     <string name="button_test">Im Standardbrowser testen</string>
     <string name="button_add_widget">Widget hinzufügen</string>

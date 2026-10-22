@@ -96,71 +96,131 @@ object FaviconLoader {
      * Cache-Datei angelegt - dann greift der naechste Versuch wieder.
      */
     fun fetchAsync(context: Context, url: String, onDone: () -> Unit) {
+        fetchWithProgress(
+            context = context,
+            url = url,
+            force = false,
+            onProgress = { },
+            onResult = { onDone() }
+        )
+    }
+
+    /**
+     * Laedt das Favicon mit Rueckmeldung an jeden Schritt.
+     *
+     * Wird fuer die Konfiguration benutzt, damit der Nutzer sieht,
+     * was passiert: welche Adresse abgerufen wird, welches Format
+     * gefunden wurde und ob am Ende ein Bild dasteht.
+     *
+     * @param force true ignoriert den Cache und laedt neu.
+     */
+    fun fetchWithProgress(
+        context: Context,
+        url: String,
+        force: Boolean = false,
+        onProgress: (String) -> Unit,
+        onResult: (FetchResult) -> Unit
+    ) {
         val appContext = context.applicationContext
         executor.execute {
             try {
                 val host = hostOf(url)
-                if (host != null) {
-                    val cacheDir = File(appContext.cacheDir, CACHE_DIR)
-                    if (!cacheDir.exists()) cacheDir.mkdirs()
-                    val target = File(cacheDir, fileNameFor(host))
-
-                    // Schon im Cache? Dann nichts neu laden.
-                    if (!target.exists() || target.length() == 0L) {
-                        downloadFavicon(url, target)
-                    }
+                if (host == null) {
+                    onProgress("Keine gueltige Adresse")
+                    onResult(FetchResult.Failed("Keine gueltige Adresse"))
+                    return@execute
                 }
+
+                val cacheDir = File(appContext.cacheDir, CACHE_DIR)
+                if (!cacheDir.exists()) cacheDir.mkdirs()
+                val target = File(cacheDir, fileNameFor(host))
+
+                if (!force && target.exists() && target.length() > 0L) {
+                    onProgress("Aus dem Cache geladen")
+                    onResult(FetchResult.Success(loadBitmap(context, url), target.name))
+                    return@execute
+                }
+
+                onProgress("Seite wird abgerufen ...")
+                val page = fetchString(url)
+                if (page == null) {
+                    onProgress("Seite nicht erreichbar")
+                    onResult(FetchResult.Failed("Seite nicht erreichbar"))
+                    return@execute
+                }
+
+                onProgress("Seite geladen (${page.length} Zeichen)")
+                val iconUrl = findIconUrl(page, url)
+                if (iconUrl == null) {
+                    onProgress("Kein Icon-Link im HTML - Fallback wird versucht")
+                } else {
+                    onProgress("Icon gefunden: $iconUrl")
+                }
+
+                val outcome = downloadFaviconWithReport(url, iconUrl, target, onProgress)
+                onResult(outcome)
             } catch (e: Exception) {
                 Log.w(TAG, "Favicon-Abruf fehlgeschlagen fuer $url", e)
+                onProgress("Fehler: ${e.message ?: e.javaClass.simpleName}")
+                onResult(FetchResult.Failed(e.message ?: e.javaClass.simpleName))
             }
-            onDone()
         }
     }
 
     /**
-     * Laedt das Favicon der Website.
-     *
-     * Reihenfolge:
-     *  1. Das im HTML genannte Icon
-     *  2. Bei SVG oder ICO: das groesste dekodierbare Bild daraus
-     *  3. Bei SVG (nicht dekodierbar): /favicon.ico der Domain
-     *  4. Notfalls: /favicon.png der Domain
+     * Ergebnis eines Abrufs.
      */
-    private fun downloadFavicon(pageUrl: String, target: File) {
-        val page = fetchString(pageUrl)
+    sealed class FetchResult {
+        data class Success(val bitmap: Bitmap?, val fileName: String) : FetchResult()
+        data class Failed(val reason: String) : FetchResult()
+    }
 
-        val iconUrl = if (page != null) findIconUrl(page, pageUrl) else null
-
+    /**
+     * Laedt das Favicon der Website und meldet jeden Schritt.
+     */
+    private fun downloadFaviconWithReport(
+        pageUrl: String,
+        iconUrl: String?,
+        target: File,
+        onProgress: (String) -> Unit
+    ): FetchResult {
         if (iconUrl != null) {
+            onProgress("Icon wird geladen ...")
             val bytes = fetchBytes(iconUrl)
             if (bytes != null && bytes.isNotEmpty()) {
-                when (ImageFormat.detect(bytes)) {
+                val kind = ImageFormat.detect(bytes)
+                onProgress("Format erkannt: $kind (${bytes.size} Bytes)")
+
+                when (kind) {
                     ImageFormat.Kind.PNG,
                     ImageFormat.Kind.JPEG,
                     ImageFormat.Kind.GIF,
                     ImageFormat.Kind.WEBP -> {
-                        if (saveIfDecodable(bytes, target)) return
+                        if (saveIfDecodable(bytes, target)) {
+                            onProgress("Gespeichert.")
+                            return FetchResult.Success(loadBitmap(target), target.name)
+                        }
                     }
 
                     ImageFormat.Kind.ICO -> {
-                        // ICO kann Android nicht dekodieren, aber die
-                        // enthaltenen Bilder schon. Das groesste wird
-                        // herausgeloest.
+                        onProgress("ICO wird entpackt ...")
                         val extracted = IcoExtractor.extractLargestImage(bytes)
-                        if (extracted != null && saveIfDecodable(extracted, target)) return
+                        if (extracted != null && saveIfDecodable(extracted, target)) {
+                            onProgress("Groesstes Bild aus ICO gespeichert.")
+                            return FetchResult.Success(loadBitmap(target), target.name)
+                        }
                     }
 
                     ImageFormat.Kind.SVG -> {
-                        // SVG kann die Android-Plattform nicht dekodieren.
-                        // Auf die Standard-Icon-Adresse der Domain
-                        // ausweichen.
-                        Log.d(TAG, "SVG-Icon wird uebersprungen: $iconUrl")
+                        onProgress("SVG kann Android nicht anzeigen - Fallback")
                     }
 
                     ImageFormat.Kind.UNKNOWN -> {
-                        Log.d(TAG, "Unbekanntes Format von $iconUrl")
+                        onProgress("Unbekanntes Format - Fallback")
                     }
                 }
+            } else {
+                onProgress("Icon nicht ladbar - Fallback")
             }
         }
 
@@ -170,20 +230,28 @@ object FaviconLoader {
             "${parsed.protocol}://${parsed.host}"
         } catch (e: Exception) {
             null
-        } ?: return
+        } ?: return FetchResult.Failed("Keine gueltige Adresse")
 
         for (fallback in listOf("/favicon.ico", "/favicon.png")) {
+            onProgress("Fallback: $fallback")
             val bytes = fetchBytes(base + fallback) ?: continue
             if (bytes.isEmpty()) continue
 
-            val payload = if (ImageFormat.detect(bytes) == ImageFormat.Kind.ICO) {
+            val kind = ImageFormat.detect(bytes)
+            val payload = if (kind == ImageFormat.Kind.ICO) {
                 IcoExtractor.extractLargestImage(bytes)
             } else {
                 bytes
             } ?: continue
 
-            if (saveIfDecodable(payload, target)) return
+            if (saveIfDecodable(payload, target)) {
+                onProgress("Gespeichert aus $fallback.")
+                return FetchResult.Success(loadBitmap(target), target.name)
+            }
         }
+
+        onProgress("Kein verwendbares Icon gefunden")
+        return FetchResult.Failed("Kein verwendbares Icon gefunden")
     }
 
     /**
@@ -355,6 +423,19 @@ object FaviconLoader {
             BitmapFactory.decodeFile(file.absolutePath)
         } catch (e: Exception) {
             Log.w(TAG, "Favicon konnte nicht gelesen werden: $host", e)
+            null
+        }
+    }
+
+    /**
+     * Liest eine Bitmap direkt aus einer Datei.
+     */
+    fun loadBitmap(file: File): Bitmap? {
+        if (!file.exists() || file.length() == 0L) return null
+        return try {
+            BitmapFactory.decodeFile(file.absolutePath)
+        } catch (e: Exception) {
+            Log.w(TAG, "Favicon konnte nicht gelesen werden: ${file.name}", e)
             null
         }
     }
