@@ -13,7 +13,6 @@ val keystoreProps = Properties()
 if (keystorePropsFile.exists()) {
     keystorePropsFile.inputStream().use { keystoreProps.load(it) }
 }
-
 android {
     namespace = "com.steimerbyte.linkwidget"
     compileSdk = 35
@@ -22,8 +21,8 @@ android {
         applicationId = "com.steimerbyte.linkwidget"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
     }
 
     signingConfigs {
@@ -59,4 +58,8 @@ android {
 dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     testImplementation("junit:junit:4.13.2")
+
+    // Icon-Extraktion: findet die Icon-Adresse einer Website, inklusive
+    // Groessensortierung, Manifest-Support und Redirect-Behandlung.
+    implementation("net.mm2d.touchicon:touchicon:0.9.9")
 }

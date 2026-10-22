@@ -94,27 +94,52 @@ Widget angezeigt - so wie ein Browser es tut.
 
 Der Ablauf:
 
-1. Die Seite wird abgerufen
-2. Aus dem `<head>` wird das passende `<link rel="icon">` ausgelesen
-3. Das Icon wird von der dort genannten Adresse geladen
+1. Die Icon-Kandidaten liefert die Bibliothek
+   [`touch-icon-extractor`](https://github.com/ohmae/touch-icon-extractor)
+   (`net.mm2d:touchicon`). Sie holt die Seite, parst das `<head>` und
+   wertet zusaetzlich das **Web-App-Manifest** aus.
+2. Die Kandidaten werden nach Groesse sortiert, der beste zuerst.
+3. Das Icon wird geladen und - falls noetig - in ein Format gebracht,
+   das Android dekodieren kann.
 
 Es wird **kein Drittanbieter-Dienst** eingeschaltet. Die einzige
 aufgerufene Domain ist die, die der Benutzer selbst eingegeben hat.
 
-**Alle Kandidaten werden gesammelt und nach ihrer tatsaechlichen Groesse
-sortiert** - so wie ein Browser es macht. Das ist wichtig, weil viele
-Seiten mehrere Icons anbieten:
+### Warum die Bibliothek und nicht eigener Code
 
-```html
-<link rel="icon" href="/favicon.ico" sizes="16x16"/>
-<link rel="icon" href="/icons/icon-192.png" sizes="192x192"/>
+Der eigene HTML-Parser fand das Icon aus dem **Web-App-Manifest**
+nicht. Bei einer Next.js-Anwendung ist genau dort das beste Icon
+hinterlegt. Fuer `omp.steimercloud.xyz` liefert die Seite:
+
+| Quelle | Icon | Groesse |
+|---|---|---|
+| `<link rel="icon">` | `favicon.ico` | 16x16 |
+| `<link rel="icon">` | `icons/icon-192.png` | 192x192 |
+| `<link rel="apple-touch-icon">` | `icons/apple-touch-icon.png` | 180x180 |
+| Web-App-Manifest | `icons/icon-192.png` | 192x192 |
+| **Web-App-Manifest** | **`icons/icon-512.png`** | **512x512** |
+
+Der Manifest-Treffer ist die Vierfach-Groesse des besten
+HTML-Icons. Ohne Manifest-Auswertung war das Icon auf dem Homescreen
+deutlich unscharfer als noetig.
+
+Die Bibliothek liefert die Kandidaten allerdings in
+**Dokumentreihenfolge, nicht nach Guete sortiert**. Sie zu uebernehmen
+ohne eigene Sortierung fuehrt genau zum Fehler, den die Bibliothek
+nicht behebt: das 16x16-`favicon.ico` steht bei den meisten Seiten
+zuerst im Dokument. Die App sortiert deshalb selbst, nach Flaeche
+und dann nach `rel`-Prioritaet:
+
+```kotlin
+val sorted = icons.sortedWith(
+    compareByDescending<Icon> { it.inferArea() }
+        .thenBy { it.rel.priority }
+)
 ```
 
-Ohne diese Sortierung gewinnt das erste Icon im Dokument, also das
-16x16-Icon - und das Widget zeigt ein pixeliges Miniaturbild statt des
-echten Logos. Die Reihenfolge der Auswahl: Groesse, dann rel-Rang
-(`fluid-icon`, `apple-touch-icon`, `shortcut icon`, `icon`,
-`mask-icon`), dann Dokumentreihenfolge.
+Der Vergleich laeuft ueber `inferArea()` und `rel.priority`, nicht ueber
+den Comparator der Bibliothek: dessen Felder sind in Version 0.9.9
+nicht oeffentlich zugaenglich.
 
 **Formate:** Android kann kein SVG und kein ICO dekodieren. Beides
 kommt in freier Wildbahn vor (Hacker News liefert `y18.svg`, viele
