@@ -4,6 +4,12 @@
 
 # Link Widget
 
+<p align="center">
+  <a href="https://github.com/steimerbyte/linkwidget/releases/latest"><img src="https://img.shields.io/github/v/release/steimerbyte/linkwidget?style=flat&colorA=222222&colorB=58A6FF" alt="Release"></a>
+  <a href="https://github.com/steimerbyte/linkwidget/blob/main/LICENSE"><img src="https://img.shields.io/github/license/steimerbyte/linkwidget?style=flat&colorA=222222&colorB=58A6FF" alt="License"></a>
+  <a href="https://github.com/steimerbyte/linkwidget/releases"><img src="https://img.shields.io/github/downloads/steimerbyte/linkwidget/total?style=flat&colorA=222222&colorB=58A6FF" alt="Downloads"></a>
+</p>
+
 Eine Nothing-OS-inspirierte Android-App, die genau einen Use-Case abbildet:
 **ein Home-Screen-Widget, das einen Link im Standardbrowser öffnet.**
 
@@ -36,7 +42,9 @@ kompilierten Bytecode, nicht nur im Quelltext.
 
 ## Installation
 
-Aktuelle Version: **v1.0.1** — https://github.com/steimerbyte/linkwidget/releases/tag/v1.0.1
+**Download:** [neuestes Release](https://github.com/steimerbyte/linkwidget/releases/latest) —
+die APK liegt dort als `app-release.apk`. Der Link zeigt immer auf die
+aktuelle Version, nicht auf eine fest eingetragene.
 
 1. APK aus `app/build/outputs/apk/release/app-release.apk` auf das Gerät übertragen
    (oder aus dem GitHub-Release herunterladen)
