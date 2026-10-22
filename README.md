@@ -212,12 +212,13 @@ im Dateisystem sind keine Hostnamen sichtbar.
 
 ## Anzeigeoptionen
 
-Jedes Widget hat zwei Schalter in der Konfiguration:
+Jedes Widget hat drei Schalter in der Konfiguration:
 
 | Schalter | Wirkung |
 |---|---|
 | **Titel anzeigen** | blendet die Beschriftung aus - es bleibt nur das Icon |
 | **URL anzeigen** | blendet die vollstaendige Adresse unter dem Titel aus |
+| **Punkt anzeigen** | blendet den Punkt unter dem Icon aus |
 
 Die Optionen gelten **pro Widget-Instanz**. Jedes Widget im
 Homescreen laesst sich einzeln einstellen.
@@ -235,6 +236,15 @@ oeffnet dann die Konfiguration erneut - moeglich ist das durch
 gesetzt ist. Ohne Titel zeigt die Beschriftung bereits den Host -
 die vollstaendige Adresse waere dann eine doppelte Information.
 Mit ausgeblendeter Beschriftung entfaellt die Zeile ebenfalls.
+
+**Das Icon fuellt den verfuegbaren Platz.** Die ImageView hat keine
+feste Groesse mehr, sondern `layout_weight="1"` - sie waechst mit dem
+Widget. Das Bild wird mittig darin skaliert (`scaleType="fitCenter"`),
+behaelt also sein Seitenverhaeltnis.
+
+Der Punkt ist die Nothing-OS-typische Textur unter dem Icon. Wer ihn
+ausblendet, sieht nur noch das Icon selbst.
+
 
 
 ## Groesse und Layout

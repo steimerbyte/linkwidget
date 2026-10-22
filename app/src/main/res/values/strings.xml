@@ -25,6 +25,7 @@
     <string name="toggle_show_title">Titel anzeigen</string>
     <string name="toggle_show_url">URL anzeigen</string>
     <string name="toggle_hint">Ohne Titel zeigt das Widget nur das Icon. Die URL erscheint nur bei eigenem Titel.</string>
+    <string name="toggle_show_dot">Punkt anzeigen</string>
     <string name="fetch_starting">Wird abgerufen ...</string>
     <string name="fetch_success">OK — %1$d×%2$d Pixel</string>
     <string name="fetch_not_decodable">Datei geladen, aber nicht als Bild lesbar.</string>

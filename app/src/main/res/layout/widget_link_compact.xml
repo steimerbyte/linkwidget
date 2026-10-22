@@ -12,24 +12,17 @@
     android:orientation="vertical"
     android:padding="8dp">
 
+    <!--
+        Auch hier fuellt das Icon den verbleibenden Platz. Bei einer
+        einzelnen Zelle ist das der ganze Widget.
+    -->
     <ImageView
         android:id="@+id/widget_icon"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:contentDescription="@string/widget_icon_desc"
         android:scaleType="fitCenter" />
-
-    <TextView
-        android:id="@+id/widget_dot"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
-        android:fontFamily="monospace"
-        android:letterSpacing="0.35"
-        android:text="●"
-        android:textColor="@color/nothing_dim"
-        android:textSize="8sp" />
-
     <TextView
         android:id="@+id/widget_title"
         android:layout_width="match_parent"

@@ -20,7 +20,14 @@ data class LinkData(
      * Standard: sichtbar, aber nur wenn ein eigener Titel gesetzt
      * ist - sonst waere die Adresse doppelt.
      */
-    val showUrl: Boolean = true
+    val showUrl: Boolean = true,
+    /**
+     * Ob der kleine Punkt unter dem Icon angezeigt wird.
+     *
+     * Standard: sichtbar. Der Punkt ist die Nothing-OS-typische
+     * Textur und markiert das Widget als "hier passiert etwas".
+     */
+    val showDot: Boolean = true
 )
 
 /**
@@ -37,6 +44,7 @@ object LinkStore {
     private const val KEY_URL = "url_"
     private const val KEY_SHOW_TITLE = "show_title_"
     private const val KEY_SHOW_URL = "show_url_"
+    private const val KEY_SHOW_DOT = "show_dot_"
 
     fun get(context: Context, widgetId: Int): LinkData {
         val prefs = context.applicationContext
@@ -46,7 +54,8 @@ object LinkStore {
             title = prefs.getString(KEY_TITLE + widgetId, "").orEmpty(),
             url = prefs.getString(KEY_URL + widgetId, "").orEmpty(),
             showTitle = prefs.getBoolean(KEY_SHOW_TITLE + widgetId, true),
-            showUrl = prefs.getBoolean(KEY_SHOW_URL + widgetId, true)
+            showUrl = prefs.getBoolean(KEY_SHOW_URL + widgetId, true),
+            showDot = prefs.getBoolean(KEY_SHOW_DOT + widgetId, true)
         )
     }
 
@@ -55,6 +64,7 @@ object LinkStore {
      *
      * @param showTitle Titel (bzw. Host) anzeigen
      * @param showUrl die vollstaendige Adresse anzeigen
+     * @param showDot den Punkt unter dem Icon anzeigen
      */
     fun set(
         context: Context,
@@ -62,7 +72,8 @@ object LinkStore {
         title: String,
         url: String,
         showTitle: Boolean = true,
-        showUrl: Boolean = true
+        showUrl: Boolean = true,
+        showDot: Boolean = true
     ) {
         val prefs = context.applicationContext
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -71,6 +82,7 @@ object LinkStore {
             .putString(KEY_URL + widgetId, url)
             .putBoolean(KEY_SHOW_TITLE + widgetId, showTitle)
             .putBoolean(KEY_SHOW_URL + widgetId, showUrl)
+            .putBoolean(KEY_SHOW_DOT + widgetId, showDot)
             .apply()
     }
 
@@ -82,6 +94,7 @@ object LinkStore {
             .remove(KEY_URL + widgetId)
             .remove(KEY_SHOW_TITLE + widgetId)
             .remove(KEY_SHOW_URL + widgetId)
+            .remove(KEY_SHOW_DOT + widgetId)
             .apply()
     }
 }

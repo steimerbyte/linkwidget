@@ -13,10 +13,16 @@
     android:orientation="vertical"
     android:padding="12dp">
 
+    <!--
+        Das Icon fuellt den verbleibenden Platz. Die Breite und Hoehe
+        sind bewusst nicht fest: mit weight=1 waechst die ImageView
+        mit dem Widget, und das Bild wird mittig therein skaliert.
+    -->
     <ImageView
         android:id="@+id/widget_icon"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:contentDescription="@string/widget_icon_desc"
         android:scaleType="fitCenter" />
 

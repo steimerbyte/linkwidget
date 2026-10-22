@@ -148,6 +148,13 @@ class LinkWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_icon, android.view.View.GONE)
         }
 
+        // Der Punkt laesst sich ausblenden. Er ist die Nothing-typische
+        // Textur unter dem Icon und markiert das Widget als aktiv.
+        views.setViewVisibility(
+            R.id.widget_dot,
+            if (link.showDot) android.view.View.VISIBLE else android.view.View.GONE
+        )
+
         if (!isCompact) {
             // Die untere URL-Zeile entfaellt, wenn kein eigener Titel
             // gesetzt ist. In dem Fall zeigt die Titelzeile bereits

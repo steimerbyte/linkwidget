@@ -73,6 +73,7 @@ class WidgetConfigActivity : Activity() {
         logText = findViewById(R.id.log_text)
         val showTitleSwitch = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_show_title)
         val showUrlSwitch = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_show_url)
+        val showDotSwitch = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_show_dot)
         logScroll = findViewById(R.id.log_scroll)
 
         cancelButton.setOnClickListener { finish() }
@@ -91,6 +92,7 @@ class WidgetConfigActivity : Activity() {
         // bereits korrekt eingestellt.
         showTitleSwitch.isChecked = store.showTitle
         showUrlSwitch.isChecked = store.showUrl
+        showDotSwitch.isChecked = store.showDot
 
         // Die Schalter wirken sofort: es wird gespeichert und das
         // Widget neu gezeichnet. Ohne das muesste der Nutzer erst
@@ -98,10 +100,11 @@ class WidgetConfigActivity : Activity() {
         val toggleListener = { _: android.widget.CompoundButton, checked: Boolean ->
             val url = UrlNormalizer.normalize(urlInput.text.toString().trim())
             val title = titleInput.text.toString().trim()
-            persist(url, title, showTitleSwitch.isChecked, showUrlSwitch.isChecked)
+            persist(url, title, showTitleSwitch.isChecked, showUrlSwitch.isChecked, showDotSwitch.isChecked)
         }
         showTitleSwitch.setOnCheckedChangeListener { button, checked -> toggleListener(button, checked) }
         showUrlSwitch.setOnCheckedChangeListener { button, checked -> toggleListener(button, checked) }
+        showDotSwitch.setOnCheckedChangeListener { button, checked -> toggleListener(button, checked) }
         val saveUrlWatcher = object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
@@ -112,7 +115,7 @@ class WidgetConfigActivity : Activity() {
                 val normalized = UrlNormalizer.normalize(s?.toString()?.trim().orEmpty())
                 if (normalized.length < "https://".length + 3) return
                 if (normalized == lastSavedUrl) return
-                persist(normalized, titleInput.text.toString().trim(), showTitleSwitch.isChecked, showUrlSwitch.isChecked)
+                persist(normalized, titleInput.text.toString().trim(), showTitleSwitch.isChecked, showUrlSwitch.isChecked, showDotSwitch.isChecked)
             }
         }
         urlInput.addTextChangedListener(saveUrlWatcher)
@@ -126,7 +129,7 @@ class WidgetConfigActivity : Activity() {
                 if (url.length < "https://".length + 3) return
                 val title = s?.toString()?.trim().orEmpty()
                 if (title == lastSavedTitle) return
-                persist(url, title, showTitleSwitch.isChecked, showUrlSwitch.isChecked)
+                persist(url, title, showTitleSwitch.isChecked, showUrlSwitch.isChecked, showDotSwitch.isChecked)
             }
         }
         titleInput.addTextChangedListener(saveTitleWatcher)
@@ -152,7 +155,7 @@ class WidgetConfigActivity : Activity() {
 
             // Auch ohne Abruf wird gespeichert: die URL soll nicht
             // verloren gehen, wenn nur das Icon scheitert.
-            persist(url, titleInput.text.toString().trim(), showTitleSwitch.isChecked, showUrlSwitch.isChecked)
+            persist(url, titleInput.text.toString().trim(), showTitleSwitch.isChecked, showUrlSwitch.isChecked, showDotSwitch.isChecked)
 
             fetchButton.isEnabled = false
             clearLog()
@@ -211,7 +214,7 @@ class WidgetConfigActivity : Activity() {
             // Texteingabe-Aenderung garantiert gespeichert wird.
             val url = UrlNormalizer.normalize(rawUrl)
             val title = titleInput.text.toString().trim()
-            persist(url, title, showTitleSwitch.isChecked, showUrlSwitch.isChecked)
+            persist(url, title, showTitleSwitch.isChecked, showUrlSwitch.isChecked, showDotSwitch.isChecked)
 
             setResult(
                 RESULT_OK,
@@ -230,9 +233,10 @@ class WidgetConfigActivity : Activity() {
         url: String,
         title: String,
         showTitle: Boolean = true,
-        showUrl: Boolean = true
+        showUrl: Boolean = true,
+        showDot: Boolean = true
     ) {
-        LinkStore.set(this, widgetId, title, url, showTitle, showUrl)
+        LinkStore.set(this, widgetId, title, url, showTitle, showUrl, showDot)
         lastSavedUrl = url
         lastSavedTitle = title
 
@@ -244,7 +248,8 @@ class WidgetConfigActivity : Activity() {
         if (title.isNotEmpty()) appendLog("            Titel: $title")
         appendLog(
             "            Anzeige: Titel ${if (showTitle) "an" else "aus"}, " +
-                "URL ${if (showUrl) "an" else "aus"}"
+                "URL ${if (showUrl) "an" else "aus"}, " +
+                "Punkt ${if (showDot) "an" else "aus"}"
         )
     }
 
