@@ -31,7 +31,10 @@ kompilierten Bytecode, nicht nur im Quelltext.
 
 ## Installation
 
+Aktuelle Version: **v1.0.1** — https://github.com/steimerbyte/linkwidget/releases/tag/v1.0.1
+
 1. APK aus `app/build/outputs/apk/release/app-release.apk` auf das Gerät übertragen
+   (oder aus dem GitHub-Release herunterladen)
 2. Datei antippen → Play Protect meldet „App aus unbekannter Quelle" → **Installieren**
 3. Long-press auf dem Home-Screen → **Widgets** → **Link Widget** auf den Bildschirm ziehen
 4. URL eingeben, optional Titel
