@@ -210,6 +210,33 @@ Maske ab - ein 48x48-Icon wird ein 48x48-Bild, nicht 48x96.
 Das Icon wird lokal im App-Cache gehalten, unter einem Hash-Namen -
 im Dateisystem sind keine Hostnamen sichtbar.
 
+## Anzeigeoptionen
+
+Jedes Widget hat zwei Schalter in der Konfiguration:
+
+| Schalter | Wirkung |
+|---|---|
+| **Titel anzeigen** | blendet die Beschriftung aus - es bleibt nur das Icon |
+| **URL anzeigen** | blendet die vollstaendige Adresse unter dem Titel aus |
+
+Die Optionen gelten **pro Widget-Instanz**. Jedes Widget im
+Homescreen laesst sich einzeln einstellen.
+
+Die Schalter wirken **sofort**: es wird gespeichert und das Widget
+neu gezeichnet, ohne dass der Speichern-Knopf gedrueckt werden
+muss.
+
+Um die Einstellungen eines bereits platzierten Widgets zu aendern,
+das Widget lange druecken und „Bearbeiten" waehlen. Der Launcher
+oeffnet dann die Konfiguration erneut - moeglich ist das durch
+`android:widgetFeatures="reconfigurable"`.
+
+**Zur URL-Zeile:** Sie erscheint nur, wenn ein eigener Titel
+gesetzt ist. Ohne Titel zeigt die Beschriftung bereits den Host -
+die vollstaendige Adresse waere dann eine doppelte Information.
+Mit ausgeblendeter Beschriftung entfaellt die Zeile ebenfalls.
+
+
 ## Groesse und Layout
 
 Das Widget belegt **eine Zelle** (`minWidth`/`minHeight` = 40dp) und

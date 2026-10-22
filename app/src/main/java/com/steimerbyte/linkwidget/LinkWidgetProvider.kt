@@ -130,7 +130,13 @@ class LinkWidgetProvider : AppWidgetProvider() {
         // Anzeigename: der gesetzte Titel, sonst der Host ohne Schema.
         // Niemals die volle URL - die steht sonst zusaetzlich in der
         // unteren Zeile und wird doppelt angezeigt.
+        //
+        // Der Titel laesst sich ausblenden. Dann bleibt nur das Icon.
         views.setTextViewText(R.id.widget_title, link.title.ifBlank { displayHost(link.url) })
+        views.setViewVisibility(
+            R.id.widget_title,
+            if (link.showTitle) android.view.View.VISIBLE else android.view.View.GONE
+        )
 
         // Favicon anzeigen, falls eines im Cache liegt. Sonst bleibt die
         // ImageView leer und der Punkt uebernimmt die visuelle Rolle.
@@ -146,12 +152,14 @@ class LinkWidgetProvider : AppWidgetProvider() {
             // Die untere URL-Zeile entfaellt, wenn kein eigener Titel
             // gesetzt ist. In dem Fall zeigt die Titelzeile bereits
             // den Host, und die vollstaendige Adresse waere eine
-            // doppelte Information.
+            // doppelte Information. Zusaetzlich laesst sich die
+            // Zeile ueber die Einstellungen ausblenden.
             val hasTitle = link.title.isNotBlank()
             views.setTextViewText(R.id.widget_url, link.url)
             views.setViewVisibility(
                 R.id.widget_url,
-                if (hasTitle) android.view.View.VISIBLE else android.view.View.GONE
+                if (hasTitle && link.showUrl) android.view.View.VISIBLE
+                else android.view.View.GONE
             )
             views.setTextViewText(R.id.widget_hint, context.getString(R.string.widget_hint))
             views.setViewVisibility(

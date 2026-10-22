@@ -71,6 +71,8 @@ class WidgetConfigActivity : Activity() {
         val previewImage = findViewById<ImageView>(R.id.preview_image)
         val statusText = findViewById<TextView>(R.id.preview_status)
         logText = findViewById(R.id.log_text)
+        val showTitleSwitch = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_show_title)
+        val showUrlSwitch = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_show_url)
         logScroll = findViewById(R.id.log_scroll)
 
         cancelButton.setOnClickListener { finish() }
@@ -83,6 +85,23 @@ class WidgetConfigActivity : Activity() {
         lastSavedUrl = store.url.ifEmpty { null }
         lastSavedTitle = store.title.ifEmpty { null }
 
+
+        // Die Anzeigeoptionen starten im gespeicherten Zustand. Beim
+        // Rekonfigurieren eines vorhandenen Widgets sind sie damit
+        // bereits korrekt eingestellt.
+        showTitleSwitch.isChecked = store.showTitle
+        showUrlSwitch.isChecked = store.showUrl
+
+        // Die Schalter wirken sofort: es wird gespeichert und das
+        // Widget neu gezeichnet. Ohne das muesste der Nutzer erst
+        // auf "Speichern" tippen, damit die Aenderung sichtbar wird.
+        val toggleListener = { _: android.widget.CompoundButton, checked: Boolean ->
+            val url = UrlNormalizer.normalize(urlInput.text.toString().trim())
+            val title = titleInput.text.toString().trim()
+            persist(url, title, showTitleSwitch.isChecked, showUrlSwitch.isChecked)
+        }
+        showTitleSwitch.setOnCheckedChangeListener { button, checked -> toggleListener(button, checked) }
+        showUrlSwitch.setOnCheckedChangeListener { button, checked -> toggleListener(button, checked) }
         val saveUrlWatcher = object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
@@ -93,7 +112,7 @@ class WidgetConfigActivity : Activity() {
                 val normalized = UrlNormalizer.normalize(s?.toString()?.trim().orEmpty())
                 if (normalized.length < "https://".length + 3) return
                 if (normalized == lastSavedUrl) return
-                persist(normalized, titleInput.text.toString().trim())
+                persist(normalized, titleInput.text.toString().trim(), showTitleSwitch.isChecked, showUrlSwitch.isChecked)
             }
         }
         urlInput.addTextChangedListener(saveUrlWatcher)
@@ -107,7 +126,7 @@ class WidgetConfigActivity : Activity() {
                 if (url.length < "https://".length + 3) return
                 val title = s?.toString()?.trim().orEmpty()
                 if (title == lastSavedTitle) return
-                persist(url, title)
+                persist(url, title, showTitleSwitch.isChecked, showUrlSwitch.isChecked)
             }
         }
         titleInput.addTextChangedListener(saveTitleWatcher)
@@ -133,7 +152,7 @@ class WidgetConfigActivity : Activity() {
 
             // Auch ohne Abruf wird gespeichert: die URL soll nicht
             // verloren gehen, wenn nur das Icon scheitert.
-            persist(url, titleInput.text.toString().trim())
+            persist(url, titleInput.text.toString().trim(), showTitleSwitch.isChecked, showUrlSwitch.isChecked)
 
             fetchButton.isEnabled = false
             clearLog()
@@ -192,7 +211,7 @@ class WidgetConfigActivity : Activity() {
             // Texteingabe-Aenderung garantiert gespeichert wird.
             val url = UrlNormalizer.normalize(rawUrl)
             val title = titleInput.text.toString().trim()
-            persist(url, title)
+            persist(url, title, showTitleSwitch.isChecked, showUrlSwitch.isChecked)
 
             setResult(
                 RESULT_OK,
@@ -203,12 +222,17 @@ class WidgetConfigActivity : Activity() {
     }
 
     /**
-     * Schreibt URL und Titel in den Speicher und zeichnet das Widget
-     * neu. Wird bei jeder Aenderung aufgerufen, nicht erst beim
-     * Speichern-Knopf.
+     * Schreibt URL, Titel und Anzeigeoptionen in den Speicher und
+     * zeichnet das Widget neu. Wird bei jeder Aenderung aufgerufen,
+     * nicht erst beim Speichern-Knopf.
      */
-    private fun persist(url: String, title: String) {
-        LinkStore.set(this, widgetId, title, url)
+    private fun persist(
+        url: String,
+        title: String,
+        showTitle: Boolean = true,
+        showUrl: Boolean = true
+    ) {
+        LinkStore.set(this, widgetId, title, url, showTitle, showUrl)
         lastSavedUrl = url
         lastSavedTitle = title
 
@@ -218,6 +242,10 @@ class WidgetConfigActivity : Activity() {
 
         appendLog("gespeichert  $url")
         if (title.isNotEmpty()) appendLog("            Titel: $title")
+        appendLog(
+            "            Anzeige: Titel ${if (showTitle) "an" else "aus"}, " +
+                "URL ${if (showUrl) "an" else "aus"}"
+        )
     }
 
     /**
