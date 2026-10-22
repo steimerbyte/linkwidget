@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/steimerbyte/linkwidget/releases/latest"><img src="https://img.shields.io/github/v/release/steimerbyte/linkwidget?style=flat&colorA=222222&colorB=58A6FF" alt="Release"></a>
-  <a href="https://github.com/steimerbyte/linkwidget/blob/main/LICENSE"><img src="https://img.shields.io/github/license/steimerbyte/linkwidget?style=flat&colorA=222222&colorB=58A6FF" alt="License"></a>
+  <a href="https://github.com/steimerbyte/linkwidget/blob/master/LICENSE"><img src="https://img.shields.io/github/license/steimerbyte/linkwidget?style=flat&colorA=222222&colorB=58A6FF" alt="License"></a>
   <a href="https://github.com/steimerbyte/linkwidget/releases"><img src="https://img.shields.io/github/downloads/steimerbyte/linkwidget/total?style=flat&colorA=222222&colorB=58A6FF" alt="Downloads"></a>
 </p>
 
