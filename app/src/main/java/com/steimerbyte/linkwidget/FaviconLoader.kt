@@ -51,6 +51,25 @@ object FaviconLoader {
         "9.9.9.9"
     )
 
+    /**
+     * DNS-over-HTTPS-Endpunkte, jeweils ueber ihre IP-Adresse
+     * angesprochen.
+     *
+     * Bewusst nur Cloudflare: geprueft wurde, welche oeffentlichen
+     * Resolver DoH ueber die IP-Adresse mit application/dns-json
+     * beantworten. Cloudflare tut das, Google nicht (400), Quad9
+     * und OpenResolv ebenfalls nicht.
+     *
+     * Es sind vier IPs derselben Zone, damit ein einzelner
+     * ausgefallene Endpunkt nicht den ganzen Abruf kippt.
+     */
+    private val DOH_RESOLVERS = listOf(
+        DohEndpoint("1.1.1.1", "cloudflare-dns.com", "/dns-query"),
+        DohEndpoint("1.0.0.1", "cloudflare-dns.com", "/dns-query"),
+        DohEndpoint("1.1.1.2", "cloudflare-dns.com", "/dns-query"),
+        DohEndpoint("1.0.0.2", "cloudflare-dns.com", "/dns-query")
+    )
+
     private val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     /**
@@ -232,6 +251,22 @@ object FaviconLoader {
         host: String,
         onProgress: (String) -> Unit
     ): Array<java.net.InetAddress>? {
+        // 1. DNS ueber HTTPS, direkt an die IP des Resolvers.
+        //    Das kommt zuerst, weil Mobilfunkbetreiber haeufig
+        //    ausgehendes UDP/53 blockieren. DoH sieht aus wie
+        //    ganz normales HTTPS und wird deshalb durchgelassen.
+        for (doh in DOH_RESOLVERS) {
+            val addresses = resolveViaDoh(host, doh, onProgress)
+            if (addresses != null) {
+                onProgress("DNS  $doh: ${addresses.joinToString(", ") { it.hostAddress ?: "?" }}")
+                return addresses
+            }
+        }
+
+        // 2. Der System-Resolver. Er ist billiger als DoH und darf
+        //    deshalb Vorrang haben, wenn er ohnehin funktioniert -
+        //    aber er wird erst nach DoH versucht, weil er auf dem
+        //    Geraet nicht zuverlaessig arbeitet.
         try {
             val addresses = java.net.InetAddress.getAllByName(host)
             onProgress("DNS  System-Resolver: ${addresses.size} Adresse(n)")
@@ -240,13 +275,12 @@ object FaviconLoader {
             onProgress("DNS  System-Resolver: ${describe(e)}")
         }
 
-        // Alternative Resolver. Die IPs sind fest eingetragen, damit
-        // die Aufloesung nicht selbst von DNS abhaengt.
+        // 3. Rohe DNS-Abfragen als letzte Moeglichkeit.
         for (resolver in FALLBACK_RESOLVERS) {
-            val address = resolveVia(host, resolver)
-            if (address != null) {
-                onProgress("DNS  $resolver: ${address.joinToString(", ") { it.hostAddress ?: "?" }}")
-                return address
+            val addresses = resolveVia(host, resolver)
+            if (addresses != null) {
+                onProgress("DNS  $resolver: ${addresses.joinToString(", ") { it.hostAddress ?: "?" }}")
+                return addresses
             }
             onProgress("DNS  $resolver: keine Antwort")
         }
@@ -254,6 +288,134 @@ object FaviconLoader {
         onProgress("DNS  alle Versuche gescheitert")
         return null
     }
+
+    /**
+     * Loest den Hostnamen ueber DNS-over-HTTPS auf.
+     *
+     * Der Resolver wird ueber seine IP-Adresse angesprochen, nicht
+     * ueber seinen Hostnamen: sonst wuerde die Aufloesung wieder
+     * DNS benoetigen, und genau daran scheitert sie ja.
+     *
+     * DoH wird bevorzugt, weil Mobilfunkbetreiber ausgehendes
+     * UDP/53 haeufig blockieren. DoH laeuft ueber TCP/443 und ist
+     * damit nicht zu unterscheiden von normalem HTTPS.
+     *
+     * Die Zertifikate der oeffentlichen Resolver enthalten
+     * IP-Adressen als Subject Alternative Name, die
+     * Zertifikatspruefung greift also auch beim Zugriff ueber die
+     * IP-Adresse.
+     */
+    private fun resolveViaDoh(
+        host: String,
+        endpoint: DohEndpoint,
+        onProgress: (String) -> Unit
+    ): Array<java.net.InetAddress>? {
+        return try {
+            val url = java.net.URL(
+                "https://${endpoint.ip}${endpoint.path}?name=$host&type=A"
+            )
+            val connection = url.openConnection() as HttpURLConnection
+            connection.connectTimeout = TIMEOUT_MS
+            connection.readTimeout = TIMEOUT_MS
+            connection.setRequestProperty("User-Agent", USER_AGENT)
+            connection.setRequestProperty("Accept", "application/dns-json")
+            connection.setRequestProperty("Host", endpoint.host)
+            connection.setInstanceFollowRedirects(false)
+
+            val code = connection.responseCode
+            if (code != 200) {
+                onProgress("      HTTP $code")
+                connection.disconnect()
+                return null
+            }
+
+            val body = connection.inputStream.use {
+                it.readBytes().toString(Charsets.UTF_8)
+            }
+            connection.disconnect()
+
+            parseDohResponse(body)
+        } catch (e: Exception) {
+            Log.d(TAG, "DoH ueber ${endpoint.ip} nicht moeglich", e)
+            onProgress("      ${describe(e)}")
+            null
+        }
+    }
+
+    /**
+     * Liest die A-Records aus einer DoH-Antwort im JSON-Format.
+     */
+    private fun parseDohResponse(body: String): Array<java.net.InetAddress>? {
+        // Nur der "Answer"-Block wird ausgewertet. Bei einem
+        // unbekannten Hostname antwortet der Resolver mit einem
+        // "Authority"-Block, der SOA-Datensaetze enthaelt - dort
+        // stehen Textwerte wie "ns0.centralnic.net", keine
+        // IP-Adressen. Ohne diese Begrenzung wuerden die als
+        // Treffer durchgehen.
+        val answerStart = body.indexOf("\"Answer\"")
+        if (answerStart < 0) return null
+
+        // Der Block endet, wo ein weiterer Abschnitt beginnt.
+        var answerEnd = body.length
+        for (section in listOf("\"Authority\"", "\"Additional\"", "\"AD\"")) {
+            val at = body.indexOf(section, answerStart)
+            if (at > 0 && at < answerEnd) answerEnd = at
+        }
+
+        val block = body.substring(answerStart, answerEnd)
+        val result = mutableListOf<java.net.InetAddress>()
+
+        var index = 0
+        while (index < block.length) {
+            val typeAt = block.indexOf("\"type\"", index)
+            if (typeAt < 0) break
+
+            val typeStart = block.indexOf(':', typeAt)
+            if (typeStart < 0) break
+            val typeEnd = block.indexOfAny(charArrayOf(',', '}'), typeStart)
+            if (typeEnd < 0) break
+            if (block.substring(typeStart + 1, typeEnd).trim() != "1") {
+                index = typeEnd + 1
+                continue
+            }
+
+            val dataAt = block.indexOf("\"data\"", typeEnd)
+            if (dataAt < 0) break
+            val quoteStart = block.indexOf('"', block.indexOf(':', dataAt) + 1)
+            if (quoteStart < 0) break
+            val quoteEnd = block.indexOf('"', quoteStart + 1)
+            if (quoteEnd < 0) break
+            val address = block.substring(quoteStart + 1, quoteEnd)
+
+            try {
+                if (address.contains(':')) {
+                    index = quoteEnd + 1
+                    continue
+                }
+                if (address.count { it == '.' } != 3) {
+                    index = quoteEnd + 1
+                    continue
+                }
+                result.add(java.net.InetAddress.getByName(address))
+            } catch (e: Exception) {
+                Log.d(TAG, "Adresse nicht lesbar: $address", e)
+            }
+
+            index = quoteEnd + 1
+        }
+
+        return if (result.isEmpty()) null else result.toTypedArray()
+    }
+
+    /**
+     * Ein DNS-over-HTTPS-Endpunkt: IP-Adresse, Hostname fuer SNI
+     * und Pfad der Abfrage.
+     */
+    private data class DohEndpoint(
+        val ip: String,
+        val host: String,
+        val path: String
+    )
 
     /**
      * Loest den Hostnamen ueber einen bestimmten DNS-Server auf.
