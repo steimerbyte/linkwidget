@@ -34,10 +34,33 @@ kompilierten Bytecode, nicht nur im Quelltext.
 1. APK aus `app/build/outputs/apk/release/app-release.apk` auf das Gerät übertragen
 2. Datei antippen → Play Protect meldet „App aus unbekannter Quelle" → **Installieren**
 3. Long-press auf dem Home-Screen → **Widgets** → **Link Widget** auf den Bildschirm ziehen
-4. URL eingeben, optional Titel → **Speichern**
+4. URL eingeben, optional Titel
+5. **Icon laden** → die Vorschau zeigt das Favicon, die Statuszeile meldet jeden Schritt
+6. **Speichern**
 
 Mehrere Links: das Widget mehrfach platzieren. Jede Instanz speichert
 ihren eigenen Link.
+
+### Der Abruf-Button
+
+Der Favicon-Abruf läuft nicht blind im Hintergrund. Beim Platzieren des
+Widgets gibt es einen Button **„Icon laden"**, der:
+
+- den Abruf auf Zuruf startet und den Cache dabei ignoriert
+- das geladene Icon in Originalgröße als Vorschau zeigt
+- jeden Schritt in der Statuszeile meldet: welche Adresse abgerufen
+  wird, welches Format erkannt wurde, wie viele Bytes, ob gespeichert
+  wurde
+
+Wichtig ist die Unterscheidung zwischen zwei Fehlerfällen, die im Widget
+beide unsichtbar wären:
+
+- **nichts gefunden** — die Seite liefert kein Icon
+- **Datei da, aber nicht als Bild lesbar** — die Datei liegt im Cache,
+  lässt sich aber nicht dekodieren (etwa ein exotisches Format)
+
+Die Statuszeile nennt den konkreten Grund, sodass sich der Fall
+eingrenzen lässt, ohne das Widget zu prüfen.
 
 ## Berechtigungen
 
@@ -149,7 +172,7 @@ Ergebnis: `app/build/outputs/apk/release/app-release.apk`
 
 ### Tests
 
-41 Unit-Tests in sechs Dateien:
+42 Unit-Tests in sieben Dateien:
 
 | Datei | Tests | Deckt ab |
 |---|---|---|
@@ -157,6 +180,7 @@ Ergebnis: `app/build/outputs/apk/release/app-release.apk`
 | `ImageFormatTest` | 12 | PNG/JPEG/GIF/WebP/SVG/ICO-Erkennung, ICO-Extraktion |
 | `FaviconUrlTest` | 7 | Aufloesung relativer und wurzel-relativer Icon-Pfade |
 | `IconSelectionTest` | 8 | Icon-Auswahl: groesstes gewinnt, `sizes`-Auswertung |
+| `FetchWithProgressTest` | 1 | kompletter Abrufweg gegen eine echte Seite |
 | `FaviconFetchTest` | 1 | Integration gegen eine echte Website (netzwerkabhaengig) |
 | `RealIcoTest` | 1 | ICO-Extraktion an einem echten ICO aus der Wildbahn (netzwerkabhaengig) |
 
