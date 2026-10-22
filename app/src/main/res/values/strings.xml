@@ -14,6 +14,13 @@
     <string name="button_fetch">Icon laden</string>
     <string name="preview_label">VORSCHAU</string>
     <string name="fetch_hint">Icon laden, um zu sehen, was im Widget erscheint.</string>
+    <string name="log_hint">Ausgabe erscheint hier, Zeile fuer Zeile.\nWenn etwas fehlschlaegt, steht hier der Grund.</string>
+    <string name="button_copy_log">Kopieren</string>
+    <string name="log_copied">Ausgabe kopiert</string>
+    <string name="log_nothing_to_copy">Noch keine Ausgabe zum Kopieren</string>
+    <string name="saved_url">URL gespeichert: %1$s</string>
+    <string name="title_saved">Titel gespeichert: %1$s</string>
+    <string name="nothing_to_save">Nichts zu speichern</string>
     <string name="fetch_starting">Wird abgerufen ...</string>
     <string name="fetch_success">OK — %1$d×%2$d Pixel</string>
     <string name="fetch_not_decodable">Datei geladen, aber nicht als Bild lesbar.</string>

@@ -60,8 +60,12 @@
             android:textSize="14sp" />
 
         <!--
-            Abruf-Button mit Live-Vorschau. Zeigt das Ergebnis genau so,
-            wie es spaeter im Widget erscheint.
+            Abruf-Button mit Live-Vorschau und Terminal-Ausgabe.
+
+            Die Ausgabe enthaelt jeden Schritt des Abrufs: Umgebung,
+            DNS, HTTP-Status, erkanntes Format, Groesse. Wenn der
+            Abruf scheitert, steht hier der konkrete Grund statt
+            einer Meldung wie "nichts gefunden".
         -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -85,33 +89,41 @@
                     android:scaleType="fitCenter"
                     android:visibility="invisible" />
 
-                <LinearLayout
+                <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
                     android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.1"
+                    android:text="@string/preview_label"
+                    android:textColor="@color/nothing_dim"
+                    android:textSize="9sp" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="monospace"
-                        android:letterSpacing="0.1"
-                        android:text="@string/preview_label"
-                        android:textColor="@color/nothing_dim"
-                        android:textSize="9sp" />
+                <TextView
+                    android:id="@+id/preview_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:fontFamily="monospace"
+                    android:text="@string/fetch_hint"
+                    android:textColor="@color/nothing_grey"
+                    android:textSize="11sp" />
 
-                    <TextView
-                        android:id="@+id/preview_status"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:fontFamily="monospace"
-                        android:text="@string/fetch_hint"
-                        android:textColor="@color/nothing_grey"
-                        android:textSize="11sp" />
-
-                </LinearLayout>
+                <Button
+                    android:id="@+id/button_copy_log"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:background="@drawable/button_background_outline"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.08"
+                    android:minWidth="0dp"
+                    android:paddingLeft="14dp"
+                    android:paddingRight="14dp"
+                    android:text="@string/button_copy_log"
+                    android:textAllCaps="false"
+                    android:textColor="@color/nothing_grey"
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
@@ -127,6 +139,34 @@
                 android:textAllCaps="false"
                 android:textColor="@color/nothing_white"
                 android:textSize="13sp" />
+
+            <!--
+                Terminal-Ausgabe. Die Zeilen werden waehrend des
+                Abrufs einzeln angehaengt, damit der Verlauf lesbar
+                bleibt und nicht am Ende alles auf einmal erscheint.
+            -->
+            <ScrollView
+                android:id="@+id/log_scroll"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:layout_marginTop="12dp"
+                android:background="#000000"
+                android:scrollbars="vertical">
+
+                <TextView
+                    android:id="@+id/log_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:lineSpacingExtra="2dp"
+                    android:padding="10dp"
+                    android:text="@string/log_hint"
+                    android:textColor="@color/nothing_grey"
+                    android:textColorHint="@color/nothing_dim"
+                    android:textIsSelectable="true"
+                    android:textSize="10sp" />
+
+            </ScrollView>
 
         </LinearLayout>
 

@@ -105,7 +105,15 @@ object FaviconLoader {
                     return@execute
                 }
 
-                onProgress("Seite wird abgerufen: $url")
+                // Ohne Netz ist jede weitere Angabe irrefuehrend. Die
+                // Bibliothek liefert bei einem Netzfehler eine leere
+                // Liste statt einer Ausnahme - ohne diese Pruefung
+                // wuerde daraus "Seite liefert kein Icon", und genau
+                // diese falsche Meldung stand bisher auf dem Geraet.
+                if (!reportEnvironment(host, url, onProgress)) {
+                    onResult(FetchResult.Failed("Host nicht erreichbar"))
+                    return@execute
+                }
 
                 // Die Icon-Kandidaten liefert die Bibliothek
                 // touch-icon-extractor. Sie parst das HTML, wertet das
@@ -115,12 +123,7 @@ object FaviconLoader {
                 val candidates = findIconCandidates(url, onProgress)
 
                 if (candidates.isEmpty()) {
-                    onProgress("Keine Icon-Kandidaten gefunden - Fallback")
-                } else {
-                    onProgress("${candidates.size} Icon-Kandidaten gefunden")
-                    candidates.forEach { candidate ->
-                        onProgress("  Kandidat: $candidate")
-                    }
+                    onProgress("keine Icon-Kandidaten - Fallback auf Standardpfade")
                 }
 
                 val outcome = downloadFaviconWithReport(
@@ -136,6 +139,61 @@ object FaviconLoader {
                 onResult(FetchResult.Failed(e.message ?: e.javaClass.simpleName))
             }
         }
+    }
+
+    /**
+     * Schreibt die Umgebungsangaben in die Ausgabe.
+     *
+     * Ohne diese Angaben laesst sich ein Fehlschlag nicht
+     * eingrenzen. "Kein verwendbares Icon gefunden" kann bedeuten,
+     * dass das Geraet den Host nicht aufloesen kann, dass die
+     * Verbindung blockiert ist, oder dass die Seite tatsaechlich
+     * kein Icon ausliefert. Die Aufloesung des Hostnamens ist das
+     * entscheidende Unterscheidungsmerkmal und wird deshalb
+     * ausgewertet, bevor ueberhaupt ein HTTP-Request erfolgt.
+     */
+    private fun reportEnvironment(
+        host: String,
+        url: String,
+        onProgress: (String) -> Unit
+    ): Boolean {
+        onProgress("--- Umgebung ---")
+        onProgress("Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
+        onProgress("Geraet ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+        onProgress("Ziel $url")
+
+        val addresses = try {
+            java.net.InetAddress.getAllByName(host)
+        } catch (e: Exception) {
+            onProgress("DNS  FEHLER: ${describe(e)}")
+            onProgress("")
+            return false
+        }
+        onProgress("DNS  ${addresses.joinToString(", ") { it.hostAddress ?: "?" }}")
+
+        // Reicht das Geraet ueberhaupt aus dem Haus heraus? Ohne
+        // Antwort auf diese Frage ist jede weitere Angabe irrefuehrend.
+        val reachable = try {
+            val probe = URL("https://$host").openConnection() as HttpURLConnection
+            probe.connectTimeout = TIMEOUT_MS
+            probe.readTimeout = TIMEOUT_MS
+            probe.setRequestProperty("User-Agent", USER_AGENT)
+            probe.setInstanceFollowRedirects(true)
+            val code = probe.responseCode
+            probe.disconnect()
+            onProgress("HTTP $code von $host")
+            code in 200..399
+        } catch (e: Exception) {
+            onProgress("HTTP FEHLER: ${describe(e)}")
+            false
+        }
+
+        onProgress(
+            if (reachable) "Netzwerkzugriff moeglich"
+            else "Netzwerkzugriff nicht moeglich - Icon kann nicht geladen werden"
+        )
+        onProgress("")
+        return reachable
     }
 
     /**
@@ -169,9 +227,22 @@ object FaviconLoader {
             extractor.userAgent = USER_AGENT
             extractor.downloadLimit = MAX_HTML_BYTES
 
+            onProgress("HTML wird gelesen ...")
             val icons = extractor.fromPage(url, true)
+
             if (icons.isEmpty()) {
-                onProgress("Seite geladen, keine Icons erkannt")
+                // Leer heisst nicht "die Seite hat kein Icon": die
+                // Bibliothek gibt bei einem Netzfehler ebenfalls eine
+                // leere Liste zurueck, ohne zu werfen. Deshalb wird
+                // die Seite einmal selbst geholt - nur so laesst sich
+                // "nicht erreichbar" von "kein Icon vorhanden"
+                // unterscheiden.
+                val probe = fetchHtml(url, onProgress)
+                if (probe == null) {
+                    onProgress("Seite nicht lesbar - Kandidaten koennen nicht ermittelt werden")
+                    return emptyList()
+                }
+                onProgress("Seite gelesen (${probe.length} Zeichen), kein <link rel=icon> darin")
                 return emptyList()
             }
 
@@ -186,16 +257,47 @@ object FaviconLoader {
                     .thenBy { it.rel.priority }
             )
 
-            onProgress("Seite geladen, ${icons.size} Icons erkannt")
+            onProgress("${icons.size} Icons erkannt, nach Groesse sortiert:")
             sorted.forEach { icon ->
-                val size = if (icon.inferArea() > 0) "${icon.inferArea()} px" else "Groesse unbekannt"
+                val size = if (icon.inferArea() > 0) "${icon.inferArea()} px²" else "unbekannt"
                 onProgress("  ${icon.rel} $size ${icon.url}")
             }
+
             sorted.map { it.url }
         } catch (e: Exception) {
+            // Auch hier darf die Ausnahme nicht verschluckt werden:
+            // Auf dem Geraet ist dies der Punkt, an dem sich zeigt,
+            // ob Netz, TLS oder das HTML die Ursache ist.
             Log.w(TAG, "Icon-Kandidaten konnten nicht ermittelt werden: $url", e)
-            onProgress("Kandidaten nicht ermittelbar: ${e.message ?: e.javaClass.simpleName}")
+            onProgress("FEHLER beim Lesen der Seite:")
+            onProgress("  ${describe(e)}")
             emptyList()
+        }
+    }
+
+    /**
+     * Holt das HTML einer Seite und gibt es als Text zurueck, oder
+     * null, wenn die Seite nicht erreichbar ist.
+     *
+     * Der Rueckgabewert null bedeutet ausdruecklich: die Seite wurde
+     * nicht gelesen. Das ist etwas voellig anderes als "die Seite
+     * enthaelt kein Icon" und in der Ausgabe getrennt ausgewiesen.
+     */
+    private fun fetchHtml(url: String, onProgress: (String) -> Unit): String? {
+        return try {
+            val connection = openConnection(url)
+            val code = connection.responseCode
+            if (code !in 200..299) {
+                onProgress("      HTTP $code (Seite nicht als HTML erreichbar)")
+                return null
+            }
+            val body = connection.inputStream.use { stream ->
+                stream.readNBytes(MAX_HTML_BYTES).toString(Charsets.UTF_8)
+            }
+            body
+        } catch (e: Exception) {
+            onProgress("      FEHLER: ${describe(e)}")
+            null
         }
     }
 
@@ -214,13 +316,16 @@ object FaviconLoader {
         target: File,
         onProgress: (String) -> Unit
     ): FetchResult {
-        for (candidate in candidates) {
-            onProgress("Lade: $candidate")
-            val bytes = fetchBytes(candidate) ?: continue
-            if (bytes.isEmpty()) continue
+        for ((index, candidate) in candidates.withIndex()) {
+            onProgress("[$index] $candidate")
+            val bytes = fetchBytes(candidate, onProgress) ?: continue
+            if (bytes.isEmpty()) {
+                onProgress("      Datei leer - uebersprungen")
+                continue
+            }
 
             val kind = ImageFormat.detect(bytes)
-            onProgress("Format: $kind (${bytes.size} Bytes)")
+            onProgress("      ${bytes.size} Bytes, Format $kind")
 
             when (kind) {
                 ImageFormat.Kind.PNG,
@@ -228,56 +333,77 @@ object FaviconLoader {
                 ImageFormat.Kind.GIF,
                 ImageFormat.Kind.WEBP -> {
                     if (saveIfDecodable(bytes, target)) {
-                        onProgress("Gespeichert.")
+                        onProgress("      -> ${target.length()} Bytes gespeichert")
                         return FetchResult.Success(loadBitmap(target), target.name)
                     }
+                    onProgress("      Android konnte das nicht dekodieren")
                 }
 
                 ImageFormat.Kind.ICO -> {
-                    onProgress("ICO wird entpackt ...")
+                    onProgress("      ICO wird entpackt ...")
                     val extracted = IcoExtractor.extractLargestImage(bytes)
-                    if (extracted != null && saveIfDecodable(extracted, target)) {
-                        onProgress("Groesstes Bild aus ICO gespeichert.")
+                    if (extracted == null) {
+                        onProgress("      ICO enthaelt kein verwertbares Bild")
+                    } else if (saveIfDecodable(extracted, target)) {
+                        onProgress("      -> groesstes ICO-Bild gespeichert")
                         return FetchResult.Success(loadBitmap(target), target.name)
+                    } else {
+                        onProgress("      entpacktes ICO nicht dekodierbar")
                     }
                 }
 
                 ImageFormat.Kind.SVG -> {
-                    onProgress("SVG kann Android nicht anzeigen - weiter")
+                    onProgress("      SVG kann Android nicht anzeigen - weiter")
                 }
 
                 ImageFormat.Kind.UNKNOWN -> {
-                    onProgress("Unbekanntes Format - weiter")
+                    onProgress("      Unbekanntes Format - weiter")
                 }
             }
         }
 
-        // Standard-Fallbacks der Domain probieren.
+        // Standard-Fallbacks der Domain probieren. Der Pfad wird aus
+        // der Seiten-URL gebildet, nicht aus dem Host: sonst ginge die
+        // Angabe verloren, wenn die Seite ueber www laeuft.
         val base = try {
             val parsed = URL(pageUrl)
             "${parsed.protocol}://${parsed.host}"
         } catch (e: Exception) {
+            onProgress("Basis-URL nicht bildbar: ${describe(e)}")
             null
         } ?: return FetchResult.Failed("Keine gueltige Adresse")
 
         for (fallback in listOf("/favicon.ico", "/favicon.png")) {
-            onProgress("Fallback: $fallback")
-            val bytes = fetchBytes(base + fallback) ?: continue
-            if (bytes.isEmpty()) continue
+            onProgress("fallback  $base$fallback")
+            val bytes = fetchBytes(base + fallback, onProgress) ?: continue
+            if (bytes.isEmpty()) {
+                onProgress("      Datei leer - uebersprungen")
+                continue
+            }
 
-            val payload = if (ImageFormat.detect(bytes) == ImageFormat.Kind.ICO) {
+            val kind = ImageFormat.detect(bytes)
+            onProgress("      ${bytes.size} Bytes, Format $kind")
+
+            val payload = if (kind == ImageFormat.Kind.ICO) {
+                onProgress("      ICO wird entpackt ...")
                 IcoExtractor.extractLargestImage(bytes)
             } else {
                 bytes
-            } ?: continue
+            }
+
+            if (payload == null) {
+                onProgress("      ICO enthaelt kein verwertbares Bild")
+                continue
+            }
 
             if (saveIfDecodable(payload, target)) {
-                onProgress("Gespeichert aus $fallback.")
+                onProgress("      -> ${target.length()} Bytes gespeichert")
                 return FetchResult.Success(loadBitmap(target), target.name)
             }
+            onProgress("      Android konnte das nicht dekodieren")
         }
 
-        onProgress("Kein verwendbares Icon gefunden")
+        onProgress("Ergebnis: kein verwendbares Icon")
         return FetchResult.Failed("Kein verwendbares Icon gefunden")
     }
 
@@ -299,15 +425,40 @@ object FaviconLoader {
     /**
      * Laedt eine URL als Bytes (fuer das Icon).
      */
-    private fun fetchBytes(url: String): ByteArray? {
+    private fun fetchBytes(url: String, onProgress: (String) -> Unit): ByteArray? {
         return try {
             val connection = openConnection(url)
-            if (connection.responseCode !in 200..299) return null
+            val code = connection.responseCode
+            if (code !in 200..299) {
+                onProgress("      HTTP $code")
+                return null
+            }
             connection.inputStream.use { it.readBytes() }
         } catch (e: Exception) {
+            // Die Ursache wird ausgegeben, nicht verschluckt. Ohne das
+            // bleibt auf dem Geraet nur "Kein verwendbares Icon gefunden"
+            // stehen und die Ursache ist nicht erkennbar.
+            onProgress("      FEHLER: ${describe(e)}")
             Log.w(TAG, "Icon konnte nicht geladen werden: $url", e)
             null
         }
+    }
+
+    /**
+     * Beschreibt eine Ausnahme in einer Form, die beim Lesen
+     * weiterhilft: Typ, Meldung und - falls vorhanden - die Ursache.
+     *
+     * Bei Netzwerkfehlern steckt die eigentliche Information fast
+     * immer in der Cause-Kette, nicht in der aeussersten Exception.
+     * "Unable to resolve host" etwa ist die Ursache von
+     * "IOException", nicht dessen Meldung.
+     */
+    private fun describe(e: Throwable): String {
+        val head = e.javaClass.simpleName +
+            (e.message?.let { ": $it" } ?: "")
+        val cause = e.cause
+        if (cause == null || cause === e) return head
+        return "$head <- ${cause.javaClass.simpleName}: ${cause.message ?: "ohne Meldung"}"
     }
 
     private fun openConnection(url: String): HttpURLConnection {

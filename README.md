@@ -92,6 +92,56 @@ beruehrt, und nur um das Icon zu holen.
 Beim Speichern der URL wird das Icon der Website geladen und auf dem
 Widget angezeigt - so wie ein Browser es tut.
 
+### Die Terminal-Ausgabe
+
+Der Button **„Icon laden"** schreibt jeden einzelnen Schritt in ein
+Terminal-Feld, Zeile fuer Zeile. Das ist kein Beiwerk: ein
+Fehlschlag ist sonst nicht eingrenzbar.
+
+„Kein verwendbares Icon gefunden" konnte dreierlei bedeuten — das
+Geraet kommt nicht ins Netz, der Hostname laesst sich nicht
+aufloesen, oder die Seite liefert tatsaechlich kein Icon. Die
+Ausgabe trennt diese Faelle:
+
+```
+--- Umgebung ---
+Android 15 (API 35)
+Geraet Nothing Phone (3a) Pro
+Ziel https://omp.steimercloud.xyz
+DNS  77.11.143.146
+HTTP 302 von omp.steimercloud.xyz
+Netzwerkzugriff moeglich
+
+HTML wird gelesen ...
+5 Icons erkannt, nach Groesse sortiert:
+  MANIFEST 262144 px² .../icons/icon-512.png
+  ICON 36864 px² .../icons/icon-192.png
+  APPLE_TOUCH_ICON 32400 px² .../apple-touch-icon.png
+  ICON 256 px² .../favicon.ico
+
+[0] https://omp.steimercloud.xyz/icons/icon-512.png
+      34195 Bytes, Format PNG
+      -> 34195 Bytes gespeichert
+Ergebnis: 512x512 Pixel
+```
+
+Bei einem Netzfehler nennt der DNS- oder HTTP-Schritt die Ausnahme
+**mit ihrer Ursache**, weil dort die eigentliche Information steckt:
+
+```
+DNS  FEHLER: UnknownHostException: gibt-es-nicht.xyz
+```
+
+Die Ausgabe laesst sich ueber **Kopieren** in die Zwischenablage
+uebernehmen und hier einfuegen.
+
+### Automatisches Speichern
+
+Die URL wird gespeichert, sobald sie sich aendert — nicht erst beim
+Drücken von **Speichern**. Der Abruf-Button speichert ebenfalls, damit
+die URL auch dann nicht verloren geht, wenn nur das Icon scheitert.
+
+
 Der Ablauf:
 
 1. Die Icon-Kandidaten liefert die Bibliothek
