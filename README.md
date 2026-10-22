@@ -443,11 +443,12 @@ gestellt. Copyleft würde Firmen und Nutzern vorschreiben, ihr gesamtes
 Projekt offen zu legen. Das widerspricht der Vorgabe, dass jeder frei
 nutzen darf, wie er will.
 
-Copyright 2026 steimerbyte.
+Copyright 2026 steimerbyte. Die Versionshistorie steht in
+[CHANGELOG.md](CHANGELOG.md).
 
 Mitwirkende: Minimax (Co-Author im Commit-Verlauf).
 
-### KI-Beitrag
+## Hinweis zur KI-Unterstützung
 
 Dieser Code wurde mit einem KI-System erstellt.
 
